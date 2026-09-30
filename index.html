@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ego Survivor" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="description" content="Roguelite survivor em pixel art inspirado em Blue Lock." />
+  <title>Blue Lock: Ego Survivor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- ============================== HUD ============================== -->
+  <div id="hud" class="hidden">
+    <div id="hud-player" class="panel">
+      <div class="hud-name"><span class="tag" id="hud-name">STRIKER</span> <span id="hud-level">LEVEL 1</span></div>
+      <div class="bar-row"><span class="lbl">HP</span><div class="bar hp"><div id="hp-fill"></div></div><span id="hp-text"></span></div>
+      <div class="bar-row"><span class="lbl">XP</span><div class="bar xp"><div id="xp-fill"></div></div></div>
+    </div>
+
+    <div id="hud-wave" class="panel">
+      <div id="wave-text">WAVE 01</div>
+      <div id="time-text">TIME 60</div>
+    </div>
+
+    <div id="hud-right">
+      <div id="kills-text">KILLS 0</div>
+      <div id="combo" class="hidden">
+        <span>COMBO</span><b id="combo-n">x00</b>
+        <div class="combo-bar"><div id="combo-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="boss-bar" class="hidden">
+      <div id="boss-name"></div>
+      <div class="bar boss"><div id="boss-fill"></div></div>
+    </div>
+
+    <div id="hud-bottom">
+      <div id="passives"></div>
+      <div id="slots"></div>
+      <div id="flow-wrap">
+        <span class="key">[F]</span>
+        <div class="bar flow"><div id="flow-fill"></div></div>
+        <span id="flow-label">FLOW</span>
+      </div>
+    </div>
+    <div id="fps" class="hidden"></div>
+  </div>
+  <div id="banner-layer"></div>
+
+  <!-- ========================= CONTROLES TOUCH ======================== -->
+  <div id="touch-ui" class="hidden">
+    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <button id="btn-flow" class="tbtn">FLOW</button>
+    <button id="btn-dash" class="tbtn">DASH</button>
+    <button id="btn-pause" class="tbtn small">II</button>
+  </div>
+
+  <!-- ============================== MENU ============================= -->
+  <div id="menu" class="screen">
+    <div class="title-wrap">
+      <div class="title-sub">— PROJECT —</div>
+      <h1 class="title"><span class="t-blue">BLUE</span><span class="t-white">LOCK</span></h1>
+      <div class="title-ego">EGO SURVIVOR</div>
+    </div>
+    <nav class="menu-buttons">
+      <button data-act="play" class="btn primary">PLAY</button>
+      <button data-act="howto" class="btn">HOW TO PLAY</button>
+      <button data-act="upgrades" class="btn">UPGRADES</button>
+      <button data-act="settings" class="btn">SETTINGS</button>
+    </nav>
+    <div class="menu-foot" id="menu-foot"></div>
+    <div class="menu-ver">v1.1 · <span class="kb-only">ENTER para jogar</span><span class="touch-only">toque em PLAY</span></div>
+    <button class="btn small fs-btn" data-act="fullscreen" title="Tela cheia">⛶</button>
+  </div>
+
+  <!-- ======================= SELEÇÃO DE PERSONAGEM ===================== -->
+  <div id="select" class="screen hidden">
+    <h2 class="select-title">CHOOSE YOUR STRIKER</h2>
+    <div id="char-list"></div>
+    <div class="btn-row">
+      <button class="btn" data-act="back">BACK</button>
+      <button class="btn primary" data-act="start">START ▶</button>
+    </div>
+  </div>
+
+  <!-- =========================== HOW TO PLAY ========================== -->
+  <div id="howto" class="screen hidden">
+    <div class="window">
+      <h2>HOW TO PLAY</h2>
+      <div class="scroll howto">
+        <section>
+          <h3>CONTROLES</h3>
+          <p><kbd>W A S D</kbd> / <kbd>SETAS</kbd> — mover em 8 direções</p>
+          <p><kbd>ESPAÇO</kbd> / <kbd>SHIFT</kbd> — DASH (invencível durante o movimento)</p>
+          <p><kbd>F</kbd> — ativar o FLOW quando a barra estiver cheia</p>
+          <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> — escolher carta no level up · <kbd>R</kbd> — reroll</p>
+          <p><kbd>ESC</kbd> / <kbd>P</kbd> — pausar</p>
+          <p>No celular: joystick virtual à esquerda, botões <b>FLOW</b> e <b>DASH</b> à direita.</p>
+        </section>
+        <section>
+          <h3>O JOGO</h3>
+          <p>Escolha entre <b>ISAGI</b>, <b>RIN</b>, <b>NAGI</b> e <b>CHIGIRI</b>: cada um começa com habilidades diferentes e tem um traço exclusivo.</p>
+          <p>Você é um atacante preso num programa de treinamento brutal. Rivais invadem a arena em <b>waves</b> cada vez maiores. Suas habilidades chutam <b>automaticamente</b> — sua função é se posicionar, ler o campo e sobreviver.</p>
+          <p>Rivais derrotados deixam <b class="c">cristais de XP</b>. Encha a barra para subir de nível e escolher 1 entre 3 cartas de habilidade.</p>
+          <p>A cada <b>5 waves</b> aparece um <b class="r">BOSS</b>: um rival de elite com ataques especiais. Fique atento às áreas vermelhas no chão!</p>
+        </section>
+        <section>
+          <h3>EVOLUÇÃO</h3>
+          <p>Cada habilidade vai até o nível <b>V</b>. Uma habilidade no nível V + a passiva certa no nível III libera uma <b class="y">EVOLUÇÃO</b> extremamente poderosa. Ex.: <b>DIRECT SHOT V + LONG SHOT III = PERFECT FINISH</b>. Veja todas as receitas em UPGRADES → CODEX.</p>
+        </section>
+        <section>
+          <h3>COMBO & FLOW</h3>
+          <p>Derrote rivais em sequência para aumentar o <b>COMBO</b>: mais XP e mais velocidade. Se ficar muito tempo sem abates, o combo cai.</p>
+          <p>Abates, combos, XP, elites e bosses enchem a barra de <b class="c">FLOW</b>. Ative-a para entrar na zona: mais velocidade, dano e recarga menor por alguns segundos.</p>
+        </section>
+        <section>
+          <h3>RIVAIS</h3>
+          <p><b>RIVAL</b> básico · <b>SPEEDSTER</b> rápido, dá botes · <b>DEFENDER</b> lento e muito resistente · <b>STRIKER</b> chuta de longe · <b>PLAYMAKER</b> fortalece rivais próximos · <b class="r">ELITE</b> raro, forte, deixa itens.</p>
+        </section>
+        <section>
+          <h3>META-PROGRESSÃO</h3>
+          <p>Ao fim de cada partida você ganha <b class="p">EGO POINTS</b>. Gaste em UPGRADES para melhorias permanentes.</p>
+        </section>
+      </div>
+      <button class="btn" data-act="back">BACK</button>
+    </div>
+  </div>
+
+  <!-- ============================ UPGRADES ============================ -->
+  <div id="upgrades" class="screen hidden">
+    <div class="window wide">
+      <h2>UPGRADES</h2>
+      <div class="ego-line">EGO POINTS: <b id="ego-total">0</b></div>
+      <div class="tabs">
+        <button class="tab" data-act="tab" data-tab="shop">SHOP</button>
+        <button class="tab" data-act="tab" data-tab="stats">RECORDS</button>
+        <button class="tab" data-act="tab" data-tab="codex">CODEX</button>
+      </div>
+      <div class="scroll" id="up-body"></div>
+      <button class="btn" data-act="back">BACK</button>
+    </div>
+  </div>
+
+  <!-- ============================ SETTINGS ============================ -->
+  <div id="settings" class="screen hidden">
+    <div class="window">
+      <h2>SETTINGS</h2>
+      <div id="settings-body" class="settings"></div>
+      <button class="btn" data-act="back">BACK</button>
+    </div>
+  </div>
+
+  <!-- ============================ LEVEL UP ============================ -->
+  <div id="levelup" class="overlay hidden">
+    <div class="lu-head">
+      <h2 class="lu-title">LEVEL UP!</h2>
+      <div id="lu-level" class="lu-level"></div>
+    </div>
+    <div id="cards"></div>
+    <div class="lu-foot">
+      <div id="lu-build" class="build-icons"></div>
+      <button id="reroll-btn" class="btn small" data-act="reroll">REROLL</button>
+    </div>
+  </div>
+
+  <!-- ============================== PAUSE ============================= -->
+  <div id="pause" class="overlay hidden">
+    <div class="window">
+      <h2>PAUSED</h2>
+      <div id="pause-build" class="build-icons"></div>
+      <div id="pause-stats" class="stat-grid"></div>
+      <div class="btn-col">
+        <button class="btn primary" data-act="resume">RESUME</button>
+        <button class="btn" data-act="settings">SETTINGS</button>
+        <button class="btn danger" data-act="quit">QUIT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ GAME OVER =========================== -->
+  <div id="gameover" class="overlay hidden">
+    <div class="window wide">
+      <h2 class="go-title">GAME OVER</h2>
+      <div id="go-stats" class="stat-grid big"></div>
+      <div id="go-build" class="build-icons"></div>
+      <h3>DANO POR HABILIDADE</h3>
+      <div id="go-damage"></div>
+      <div id="go-ego" class="go-ego"></div>
+      <div class="btn-row">
+        <button class="btn primary" data-act="retry">RETRY</button>
+        <button class="btn" data-act="menu">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts clássicos (funcionam abrindo o arquivo direto, sem servidor). A ordem importa. -->
+  <script src="js/core.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/characters.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/collision.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/projectiles.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/enemy.js"></script>
+  <script src="js/abilities.js"></script>
+  <script src="js/waves.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

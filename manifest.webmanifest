@@ -1,0 +1,10 @@
+{
+  "name": "Blue Lock: Ego Survivor",
+  "short_name": "Ego Survivor",
+  "description": "Roguelite survivor em pixel art inspirado em Blue Lock.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#05070f",
+  "theme_color": "#05070f"
+}
