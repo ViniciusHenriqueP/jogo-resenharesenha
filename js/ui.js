@@ -153,6 +153,7 @@
         case 'retry':
           this.enterFullscreen();
           this.hideAllScreens();
+          this.screen = 'game';
           g.newRun();
           break;
         case 'card':
@@ -203,6 +204,7 @@
     launch() {
       this.enterFullscreen();
       this.hideAllScreens();
+      this.screen = 'game'; // senão a tela continua 'intro' e o DASH dispara 'begin' de novo
       this.game.newRun(this.selected, this.runOpts);
     },
 

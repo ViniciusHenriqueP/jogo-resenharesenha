@@ -470,15 +470,20 @@
   // Estilo anime chibi: layout 20x28 num canvas 24x32 (margem 2 para o
   // contorno). Cabeça grande, olhos com íris + brilho, cabelo por mapa de
   // pixels (characters.js), número nas costas.
+  // Detalhes opcionais do uniforme (look): collar, sockBand, shortsTrim,
+  // shortsHem, bootTip, cuff, sleeve + glove (manga longa/luva), wrist
+  // (munhequeira), panel + sponsor (painel central da camisa), frontNum
+  // (número no peito), tattoo (braço esquerdo), liner / lash (olhos).
   const HW = 24, HH = 32, HOX = 2, HOY = 2;
 
-  function drawHero(ctx, o, hair, dir, pose, frame) {
+  // mirrored = quadro lateral que será espelhado (mostra o lado esquerdo)
+  function drawHero(ctx, o, hair, dir, pose, frame, mirrored) {
     const P = (x, y, w, h, c) => {
       ctx.fillStyle = c;
       ctx.fillRect(HOX + x, HOY + y, w, h);
     };
     const map = (rows, xo, yo) => {
-      const pal = { h: o.hair, H: o.hair2, d: o.hairD, t: o.hairT };
+      const pal = { h: o.hair, H: o.hair2, d: o.hairD, t: o.hairT, T: o.hairT2 };
       for (let y = 0; y < rows.length; y++)
         for (let x = 0; x < rows[y].length; x++) {
           const c = pal[rows[y][x]];
@@ -494,9 +499,9 @@
       const leg = (x, lift) => {
         P(x, 23, 3, 1, sk);
         P(x, 24, 3, 3 - lift, o.socks);
-        P(x, 24, 3, 1, o.shirt2);
+        P(x, 24, 3, 1, o.sockBand);
         P(x < 10 ? x - 1 : x, 27 - lift, 4, 1, o.boots);
-        P(x < 10 ? x - 1 : x, 27 - lift, 1, 1, '#9aa4c4');
+        P(x < 10 ? x - 1 : x, 27 - lift, 1, 1, o.bootTip || '#9aa4c4');
       };
       if (pose === 'kick') {
         leg(6, 0);
@@ -513,41 +518,68 @@
       // ---- calção
       P(5, 20 + yb, 10, 3, o.shorts);
       P(9, 21 + yb, 2, 2, o.shortsD);
-      P(5, 20 + yb, 1, 2, o.shirt2);
-      P(14, 20 + yb, 1, 2, o.shirt2);
+      P(5, 20 + yb, 1, 2, o.shortsTrim);
+      P(14, 20 + yb, 1, 2, o.shortsTrim);
+      if (o.shortsHem) {
+        P(5, 22 + yb, 4, 1, o.shortsHem);
+        P(11, 22 + yb, 4, 1, o.shortsHem);
+      }
       // ---- braços
       const sw = run ? (frame === 1 ? 1 : frame === 3 ? -1 : 0) : 0;
       const raise = pose === 'kick' ? -1 : pose === 'dash' ? 1 : 0;
       const spread = pose === 'kick' ? 1 : 0;
-      const arm = (x, dy) => {
-        P(x, 14 + yb + dy, 2, 2, o.shirt);
-        P(x, 16 + yb + dy, 2, 2, sk);
-        P(x, 18 + yb + dy, 2, 1, skD);
+      const arm = (x, dy, left) => {
+        const y = 14 + yb + dy;
+        P(x, y, 2, 2, o.shirt);
+        if (o.cuff) P(x, y + 1, 2, 1, o.cuff);
+        P(x, y + 2, 2, 2, o.sleeve || sk);
+        P(x, y + 4, 2, 1, o.glove || skD);
+        if (o.wrist) P(x, y + 3, 2, 1, o.wrist);
+        if (o.tattoo && left) {
+          P(x, y + 2, 1, 1, o.tattoo);
+          P(x + 1, y + 3, 1, 1, o.tattoo);
+        }
       };
-      arm(3 - spread, sw + raise);
-      arm(15 + spread, -sw + raise);
+      // o braço esquerdo do personagem fica à direita da tela quando ele olha para a câmera
+      arm(3 - spread, sw + raise, dir === 'up');
+      arm(15 + spread, -sw + raise, dir === 'down');
       // ---- camisa
       P(5, 14 + yb, 10, 6, o.shirt);
       P(13, 15 + yb, 2, 5, o.shirtD);
       P(5, 19 + yb, 10, 1, o.shirtD);
-      P(5, 14 + yb, 1, 3, o.shirt2);
-      P(14, 14 + yb, 1, 3, o.shirt2);
-      if (dir === 'down') {
-        P(7, 14 + yb, 2, 1, o.shirt2);
-        P(11, 14 + yb, 2, 1, o.shirt2);
-        P(9, 14 + yb, 2, 1, sk);
-        P(9, 15 + yb, 2, 1, o.shirt2);
-        P(11, 16 + yb, 2, 2, o.shirt2); // escudo
-        P(11, 16 + yb, 1, 1, '#ffffff');
-      } else {
+      if (!o.panel) {
+        P(5, 14 + yb, 1, 3, o.shirt2);
+        P(14, 14 + yb, 1, 3, o.shirt2);
+      }
+      const number = (color) => {
         const num = String(o.number || '10');
         let nx = 10 - Math.ceil((num.length * 4 - 1) / 2);
         for (const ch of num) {
           const g = GLYPHS[ch];
-          for (let y = 0; y < 5; y++) for (let i = 0; i < 3; i++) if (g[y][i] === '1') P(nx + i, 15 + yb + y, 1, 1, o.num);
+          for (let y = 0; y < 5; y++) for (let i = 0; i < 3; i++) if (g[y][i] === '1') P(nx + i, 15 + yb + y, 1, 1, color);
           nx += 4;
         }
-      }
+      };
+      if (dir === 'down') {
+        if (o.panel) {
+          // painel central que afunila na cintura, com friso
+          P(7, 15 + yb, 6, 2, o.panel);
+          P(7, 17 + yb, 6, 3, o.shirt2);
+          P(8, 17 + yb, 4, 3, o.panel);
+          P(11, 17 + yb, 1, 3, o.panelD);
+          P(12, 15 + yb, 1, 2, o.panelD);
+          if (o.sponsor) P(8, 17 + yb, 3, 1, o.sponsor);
+        }
+        P(7, 14 + yb, 2, 1, o.collar);
+        P(11, 14 + yb, 2, 1, o.collar);
+        P(9, 14 + yb, 2, 1, sk);
+        P(9, 15 + yb, 2, 1, o.collar);
+        if (o.frontNum) number(o.frontNum);
+        else if (!o.panel) {
+          P(11, 16 + yb, 2, 2, o.shirt2); // escudo
+          P(11, 16 + yb, 1, 1, '#ffffff');
+        }
+      } else number(o.num);
       P(8, 13 + yb, 4, 1, skD); // pescoço
       // ---- cabeça
       P(5, 4 + yb, 10, 8, sk);
@@ -573,6 +605,14 @@
           P(12, 9 + yb, 2, 1, o.eyeD);
           P(6, 9 + yb, 1, 1, '#ffffff');
           P(12, 9 + yb, 1, 1, '#ffffff');
+        }
+        if (o.liner) {
+          P(5, 9 + yb, 1, 1, o.liner);
+          P(14, 9 + yb, 1, 1, o.liner);
+        }
+        if (o.lash) {
+          P(5, 10 + yb, 1, 1, o.lash);
+          P(14, 10 + yb, 1, 1, o.lash);
         }
         P(9, 12 + yb, 2, 1, o.mouth);
         map(hair.down, 0, yb);
@@ -603,20 +643,30 @@
       P(8 - sw, 27, 3, 1, o.boots);
       P(10 + sw, 23, 2, 1, sk);
       P(10 + sw, 24, 2, 3 - lift, o.socks);
-      P(10 + sw, 24, 2, 1, o.shirt2);
+      P(10 + sw, 24, 2, 1, o.sockBand);
       P(10 + sw, 27 - lift, 3, 1, o.boots);
+      if (o.bootTip) P(12 + sw, 27 - lift, 1, 1, o.bootTip);
     }
     const ln = pose === 'dash' ? 1 : 0;
     P(7 + ln, 20 + yb, 6, 3, o.shorts);
     P(7 + ln, 20 + yb, 6, 1, o.shortsD);
+    if (o.shortsHem) P(7 + ln, 22 + yb, 6, 1, o.shortsHem);
     P(7 + ln, 14 + yb, 6, 6, o.shirt);
     P(7 + ln, 14 + yb, 1, 6, o.shirtD);
     P(7 + ln, 19 + yb, 6, 1, o.shirtD);
-    P(7 + ln, 14 + yb, 6, 1, o.shirt2);
+    if (o.panel) P(12 + ln, 15 + yb, 1, 5, o.panel);
+    P(7 + ln, 14 + yb, 6, 1, o.collar);
     P(9 + ln, 13 + yb, 3, 1, skD);
     const ax = pose === 'dash' ? 6 : 9 + (run ? [0, 1, 0, -1][frame] : 0);
     P(ax + ln, 15 + yb, 2, 2, o.shirt);
-    P(ax + ln, 17 + yb, 2, 2, sk);
+    if (o.cuff) P(ax + ln, 16 + yb, 2, 1, o.cuff);
+    P(ax + ln, 17 + yb, 2, 2, o.sleeve || sk);
+    if (o.glove) P(ax + ln, 18 + yb, 2, 1, o.glove);
+    if (o.wrist) P(ax + ln, 18 + yb, 2, 1, o.wrist);
+    if (o.tattoo && mirrored) {
+      P(ax + ln, 17 + yb, 1, 1, o.tattoo);
+      P(ax + ln + 1, 18 + yb, 1, 1, o.tattoo);
+    }
     // cabeça
     P(7 + ln, 4 + yb, 8, 8, sk);
     P(8 + ln, 12 + yb, 6, 1, sk);
@@ -633,12 +683,16 @@
       P(12 + ln, 9 + yb, 2, 1, o.eyeD);
       P(13 + ln, 9 + yb, 1, 1, '#ffffff');
     }
+    if (o.liner) P(14 + ln, 9 + yb, 1, 1, o.liner);
+    if (o.lash) P(14 + ln, 10 + yb, 1, 1, o.lash);
     P(13 + ln, 12 + yb, 1, 1, o.mouth);
     map(hair.side, ln, yb);
   }
 
   function buildHero(key, look, hair) {
     const o = Object.assign({ blush: '#f2a39a', mouth: '#b5655a', outline: '#0b0c1c' }, look);
+    for (const k of ['collar', 'sockBand', 'shortsTrim']) o[k] = o[k] || o.shirt2;
+    if (o.panel) o.panelD = shade(o.panel, 0.78);
     o.skinD = shade(o.skin, 0.84);
     o.shirtD = shade(o.shirt, 0.7);
     o.shortsD = shade(o.shorts, 0.6);
@@ -647,13 +701,17 @@
     const set = { down: [], up: [], right: [], left: [], fdown: [], fup: [], fright: [], fleft: [], scale: 1, ax: 12, ay: 19, feet: 10 };
     for (const dir of ['down', 'up', 'right']) {
       for (const [pose, f] of POSES) {
-        const c = canvas(HW, HH);
-        drawHero(c.getContext('2d'), o, hair, dir === 'right' ? 'side' : dir, pose, f);
-        outline(c, o.outline);
+        const draw = (mirrored) => {
+          const c = canvas(HW, HH);
+          drawHero(c.getContext('2d'), o, hair, dir === 'right' ? 'side' : dir, pose, f, mirrored);
+          return outline(c, o.outline);
+        };
+        const c = draw(false);
         set[dir].push(c);
         set['f' + dir].push(silhouette(c, '#ffffff'));
         if (dir === 'right') {
-          const fl = flipH(c);
+          // tatuagem só existe no braço esquerdo: o quadro "left" é desenhado à parte
+          const fl = flipH(o.tattoo ? draw(true) : c);
           set.left.push(fl);
           set.fleft.push(silhouette(fl, '#ffffff'));
         }

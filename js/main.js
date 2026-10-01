@@ -71,7 +71,7 @@
       if (I.hit('arrowright', 'd')) BL.UI.selectStep(1);
       if (I.hit('enter', ' ')) BL.UI.action('start');
       if (I.hit('escape')) BL.UI.action('back');
-    } else if (BL.UI.screen === 'intro') {
+    } else if (BL.UI.screen === 'intro' && game.state !== 'playing') {
       // abertura de capítulo (vinda da seleção ou da tela de vitória)
       if (I.hit('enter', ' ')) BL.UI.action('begin');
       if (I.hit('escape')) BL.UI.action('back');

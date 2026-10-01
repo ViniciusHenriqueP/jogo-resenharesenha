@@ -24,7 +24,7 @@
   // infinito (characters.js: unlock). O sprite é o do próprio herói em escala 2x.
   const BOSSES = (BL.BossDefs = [
     { key: 'loki', name: 'JULIAN LOKI', short: 'LOKI', title: 'THE GODSPEED', sprite: 'boss_loki', hp: 3200, speed: 64, dmg: 18, r: 13, xp: 1400, color: '#00e5ff', palette: ['#00e5ff', '#ffd400', '#ffffff'] },
-    { key: 'hugo', name: 'VIVIAN HUGO', short: 'HUGO', title: 'THE IRON WALL', sprite: 'boss_hugo', hp: 11000, speed: 36, dmg: 26, r: 16, xp: 2400, color: '#ff7b00', palette: ['#ff7b00', '#4a4a58', '#ffffff'] },
+    { key: 'hugo', name: 'VIVIAN HUGO', short: 'HUGO', title: "THE WORLD'S BEST NUMBER 2", sprite: 'boss_hugo', hp: 11000, speed: 36, dmg: 26, r: 16, xp: 2400, color: '#e6b450', palette: ['#e6b450', '#cf3340', '#ffffff'] },
     { key: 'sae', name: 'ITOSHI SAE', short: 'SAE', title: 'THE WORLD-CLASS GENIUS', sprite: 'boss_sae', hp: 22000, speed: 50, dmg: 24, r: 13, xp: 3400, color: '#ff5c8a', palette: ['#ff5c8a', '#2ee6b8', '#ffffff'] },
     { key: 'kaiser', name: 'MICHAEL KAISER', short: 'KAISER', title: 'THE EMPEROR', sprite: 'boss_kaiser', hp: 40000, speed: 58, dmg: 32, r: 15, xp: 5000, color: '#2f6bff', palette: ['#2f6bff', '#ffd84a', '#ffffff'] },
   ]);
@@ -433,7 +433,7 @@
       return mv(0, 0, 0);
     },
 
-    // --------------------------------------------------- força física
+    // ------------------------------- meio-campista que domina o espaço
     hugo(game, e, dt, tdx, tdy) {
       enrageCheck(game, e);
       e.stT -= dt;
@@ -447,7 +447,7 @@
             e.cyc++;
             if (e.cyc % 2) {
               next(e, 'slamWind', 0.9);
-              BL.FX.telegraph({ kind: 'circle', x: e.x, y: e.y, r: 90, dur: e.stT, color: '#ff7b00', follow: e, grow: true });
+              BL.FX.telegraph({ kind: 'circle', x: e.x, y: e.y, r: 90, dur: e.stT, color: '#e6b450', follow: e, grow: true });
               BL.Audio.play('charge');
             } else {
               next(e, 'leapWind', 0.5);
@@ -455,7 +455,7 @@
               e.ly = pl.y;
               e.sx = e.x;
               e.sy = e.y;
-              BL.FX.telegraph({ kind: 'circle', x: e.lx, y: e.ly, r: 75, dur: e.stT + 0.85 * e.tempo, color: '#ff7b00', grow: true });
+              BL.FX.telegraph({ kind: 'circle', x: e.lx, y: e.ly, r: 75, dur: e.stT + 0.85 * e.tempo, color: '#e6b450', grow: true });
             }
           }
           return mv(tdx, tdy, e.speed);
@@ -464,7 +464,7 @@
           if (e.stT <= 0) {
             game.shake(9);
             BL.Audio.play('explosion', { big: true });
-            BL.FX.explosion(e.x, e.y, 90, ['#ffffff', '#ff7b00', '#4a4a58', '#ffd84a'], true);
+            BL.FX.explosion(e.x, e.y, 90, ['#ffffff', '#e6b450', '#cf3340', '#ffd84a'], true);
             if (U.dist(e.x, e.y, pl.x, pl.y) < 90 + pl.r && pl.canBeHit()) game.hurtPlayer(e.dmg * 1.3, e);
             radial(game, e, e.enraged ? 22 : 16, 105, Math.random(), e.dmg * 0.7);
             next(e, 'recover', 0.8);
@@ -489,7 +489,7 @@
             BL.Collision.resolve(game.map, e);
             game.shake(10);
             BL.Audio.play('explosion', { big: true });
-            BL.FX.explosion(e.x, e.y, 75, ['#ffffff', '#ff7b00', '#4a4a58', '#ffd84a'], true);
+            BL.FX.explosion(e.x, e.y, 75, ['#ffffff', '#e6b450', '#cf3340', '#ffd84a'], true);
             if (U.dist(e.x, e.y, pl.x, pl.y) < 75 + pl.r && pl.canBeHit()) game.hurtPlayer(e.dmg * 1.4, e);
             radial(game, e, 10, 120, 0, e.dmg * 0.7);
             if (e.cyc % 4 === 0) summon(game, e, 'defender', e.enraged ? 4 : 3, 60);
