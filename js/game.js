@@ -1,7 +1,8 @@
 'use strict';
 /* =========================================================================
  * game.js — classe Game: estados (menu, playing, levelup, paused,
- * gameover), loop de atualização, combate, XP, combo, FLOW, câmera e
+ * gameover), modos (infinito / história), loop de atualização, combate,
+ * XP, combo, FLOW, câmera e
  * renderização em camadas (chão -> sombras -> entidades ordenadas por Y
  * -> projéteis -> partículas -> overlays de tela).
  * ========================================================================= */
@@ -73,12 +74,16 @@
     }
 
     // ================================================================ RUN
-    newRun(charId) {
+    /** opts: { mode: 'endless' | 'story', chapter } — sem opts repete a última partida */
+    newRun(charId, opts) {
       if (charId) {
         BL.Save.data.character = charId;
         BL.Save.save();
       }
       charId = BL.Save.data.character;
+      opts = this.lastRun = opts || this.lastRun || { mode: 'endless' };
+      this.mode = opts.mode;
+      this.chapter = opts.mode === 'story' ? BL.Story.chapters[opts.chapter] : null;
       BL.Audio.init();
       for (const e of this.enemies) BL.Enemies.release(e);
       this.enemies.length = 0;
@@ -102,14 +107,18 @@
       this.comboT = 0;
       this.comboDecayT = 0;
       this.maxCombo = 0;
-      this.flow = Math.min(100, 25 * BL.Save.metaLevel('flowstart'));
+      this.flow = Math.min(100, 20 * BL.Save.metaLevel('flowstart'));
       this.flowT = 0;
       this.flowMax = 8;
       this.flowReady = false;
       this.egoActive = false;
       this.egoCheckT = 0;
       this.trailT = 0;
-      this.run = { bossKills: 0, evolutions: 0, bonusEgo: 0, elites: 0, damage: {} };
+      this.run = { bossKills: 0, evolutions: 0, bonusEgo: 0, elites: 0, damage: {}, skips: 0, unlocked: [], revives: BL.Save.metaLevel('revive') };
+      this.freePicks = this.chapter ? this.chapter.startLevels : 0; // cartas de bônus do modo história
+      this.clearT = 0;
+      this.cleared = false;
+      this.banishMode = false;
       this.boss = null;
       this.timeScale = 1;
       this.hitstop = 0;
@@ -120,7 +129,7 @@
       this.xpPitch = 1;
       this.xpPitchT = 0;
       this.godMode = false;
-      this.waves = new BL.Waves(this);
+      this.waves = new BL.Waves(this, this.chapter ? BL.Story.wavesCfg(this.chapter) : null);
       this.build = new BL.Abilities.Build(this);
       // habilidades iniciais do personagem escolhido
       for (const [id, lvl] of this.player.char.start) for (let i = 0; i < lvl; i++) this.build.add(id);
@@ -164,7 +173,11 @@
       if (this.dying > 0) {
         this.dying -= dtReal;
         dt = dtReal * 0.25;
-        if (this.dying <= 0) return this.finishGameOver();
+        if (this.dying <= 0) return this.endRun(false);
+      } else if (this.clearT > 0) {
+        this.clearT -= dtReal;
+        dt = dtReal * 0.5;
+        if (this.clearT <= 0) return this.endRun(true);
       } else this.runTime += dt;
       this.time += dt;
       const p = this.player;
@@ -172,6 +185,7 @@
       if (!this.dying) {
         if (I.hit(' ', 'shift')) p.tryDash(this);
         if (I.hit('f')) this.activateFlow();
+        if (I.hit('q')) this.skipWave();
       }
 
       // timers agendados
@@ -215,7 +229,7 @@
       BL.Audio.music.setIntensity(this.boss || this.flowT > 0 ? 2 : 1);
       BL.UI.updateHUD(this);
 
-      if (this.pendingLevels > 0 && !this.dying && this.state === 'playing') this.openLevelUp();
+      if ((this.pendingLevels > 0 || this.freePicks > 0) && !this.dying && !this.cleared && this.state === 'playing') this.openLevelUp();
     }
 
     rebuildGrid() {
@@ -267,6 +281,8 @@
       let m = s.might;
       if (this.flowT > 0) m *= 1.5 * s.flowPower;
       if (this.egoActive) m *= 1 + 0.08 * s.egoLvl;
+      if (s.awakenLvl && this.awakened()) m *= 1 + 0.1 * s.awakenLvl;
+      if (s.comboDmg) m *= 1 + Math.min(0.25, this.combo * s.comboDmg);
       return m;
     }
     speedMul() {
@@ -274,7 +290,13 @@
       let m = 1 + Math.min(this.combo, 100) * 0.001;
       if (this.flowT > 0) m *= 1.35;
       if (this.egoActive) m *= 1 + 0.04 * s.egoLvl;
+      if (s.awakenLvl && this.awakened()) m *= 1 + 0.04 * s.awakenLvl;
       return m;
+    }
+    /** AWAKENING: o jogador está no limite (menos de 35% de HP) */
+    awakened() {
+      const p = this.player;
+      return p.hp < p.stats.maxHp * 0.35;
     }
     cdMul() {
       return this.player.stats.cdMul * (this.flowT > 0 ? 0.6 : 1);
@@ -319,6 +341,7 @@
         if (pick === 'marked') s = e.markT > 0 ? d2 * 0.15 : d2;
         else if (pick === 'tough') s = -(e.isBoss ? 1e7 : e.hp) + d2 * 0.0005;
         else if (pick === 'weak') s = (e.hp / e.maxHp) * 60000 + d2;
+        else if (pick === 'far') s = -d2;
         else if (e.markT > 0) s *= 0.6;
         if (res.length < n) {
           let i = res.length;
@@ -464,9 +487,34 @@
       }
     }
 
+    /** dano em leque (SLIDING TACKLE): ang = direção, half = meia abertura em rad */
+    cone(x, y, ang, half, r, dmg, knock, stun, src, palette) {
+      for (let i = 0; i < 18; i++) {
+        const a = ang + U.rand(-half, half);
+        const sp = U.rand(1.6, 3.2) * r;
+        BL.FX.spawn(x + Math.cos(a) * 6, y + Math.sin(a) * 6, Math.cos(a) * sp, Math.sin(a) * sp, 0.28, U.randInt(2, 3), U.pick(palette), 5);
+      }
+      for (const s of [-1, 1]) BL.FX.line(x, y, x + Math.cos(ang + half * s) * r, y + Math.sin(ang + half * s) * r, palette[2], 0.2, 2);
+      BL.Audio.play('shock');
+      this.shake(2);
+      this.grid.query(x, y, r + 16, this.ebuf);
+      for (const e of this.ebuf) {
+        if (e.dead || e.spawnT > 0) continue;
+        const dx = e.x - x, dy = e.y - y;
+        const rr = r + e.r;
+        if (dx * dx + dy * dy > rr * rr) continue;
+        let d = Math.atan2(dy, dx) - ang;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        // rivais colados no jogador sempre são atingidos
+        if (Math.abs(d) > half && dx * dx + dy * dy > 18 * 18) continue;
+        this.damageEnemy(e, dmg, { src, kx: dx, ky: dy, knock, stun });
+      }
+    }
+
     hurtPlayer(dmg, source) {
       const p = this.player;
-      if (!p.canBeHit() || this.dying || this.godMode) return;
+      if (!p.canBeHit() || this.dying || this.godMode || this.cleared) return;
       dmg = Math.max(1, dmg - p.stats.armor) * (this.flowT > 0 ? 0.7 : 1);
       p.hp -= dmg;
       p.iframes = 0.55;
@@ -479,8 +527,22 @@
       BL.FX.burst(p.x, p.y, 10, ['#ff2d55', '#ffffff', '#d7263d'], 30, 110, 0.2, 0.45, 1, 3);
       if (p.hp <= 0) {
         p.hp = 0;
-        this.startDying();
+        if (this.run.revives > 0) this.revive();
+        else this.startDying();
       }
+    }
+
+    /** SECOND HALF (upgrade permanente): volta com metade do HP uma vez por partida */
+    revive() {
+      const p = this.player;
+      this.run.revives--;
+      p.hp = p.stats.maxHp * 0.5;
+      p.iframes = 2.5;
+      this.whiteFlash = 0.5;
+      this.hitstop = 0.4;
+      this.banner('SECOND HALF!', 'gold', 'THE MATCH IS NOT OVER');
+      BL.Audio.play('evolve');
+      this.shockwave(p.x, p.y, 150, 40, 380, 'flow', ['#ffffff', '#ffd84a', '#ff9f1a']);
     }
 
     heal(v) {
@@ -653,7 +715,7 @@
     }
 
     addXP(v) {
-      v *= this.player.stats.xpMul * this.comboXpMul();
+      v *= this.player.stats.xpMul * this.comboXpMul() * (this.chapter ? this.chapter.xpMul || 1 : 1);
       this.xp += v;
       while (this.xp >= this.xpNeed) {
         this.xp -= this.xpNeed;
@@ -664,7 +726,6 @@
     }
 
     addFlow(v, raw) {
-      if (this.flowT > 0 && !raw) return;
       if (this.flowT > 0) return;
       this.flow = Math.min(100, this.flow + v * (raw ? 1 : this.player.stats.flowGain));
       if (this.flow >= 100 && !this.flowReady) {
@@ -723,7 +784,9 @@
 
     // ============================================================ EVENTOS
     onWaveStart(w) {
-      this.banner('WAVE ' + U.pad2(w), 'wave', this.waves.isBossWave(w) ? 'WARNING: BOSS INCOMING' : null);
+      const total = this.waves.cfg.total;
+      const last = this.chapter && w === total && !this.waves.isBossWave(w);
+      this.banner('WAVE ' + U.pad2(w) + (this.chapter ? '/' + U.pad2(total) : ''), 'wave', this.waves.isBossWave(w) ? 'WARNING: BOSS INCOMING' : last ? 'FINAL WAVE: SURVIVE!' : null);
       BL.Audio.play('wave');
       if (w > 1) this.heal(this.player.stats.maxHp * 0.1);
     }
@@ -755,6 +818,55 @@
       this.dropPickup(e.x + 12, e.y, 'magnet');
       this.addFlow(60, true);
       this.waves.timeLeft = Math.min(this.waves.timeLeft, 4);
+      // modo infinito: derrotar um NEW GEN 11 libera ele como personagem jogável
+      const ch = BL.Characters.list.find((c) => c.unlock && c.unlock.boss === e.boss.key);
+      if (this.mode === 'endless' && ch && !BL.Save.isUnlocked(ch)) {
+        BL.Save.data.unlocked[ch.id] = true;
+        BL.Save.save();
+        this.run.unlocked.push(ch);
+        this.schedule(1.6, () => {
+          this.banner('NEW STRIKER UNLOCKED!', 'gold', ch.name);
+          BL.Audio.play('evolve');
+        });
+      }
+    }
+
+    /** pula o resto da wave: os rivais que faltavam chegam todos de uma vez */
+    skipWave() {
+      const wv = this.waves;
+      if (this.dying || this.cleared || !wv.canSkip()) return;
+      const rem = wv.timeLeft;
+      const n = wv.skip();
+      const ego = Math.ceil(rem / 6);
+      this.run.skips++;
+      this.run.bonusEgo += ego;
+      this.addFlow(rem * 0.3, true);
+      this.shake(6);
+      BL.Input.vibrate([30, 40, 30]);
+      this.banner('WAVE SKIPPED', 'warn', '+' + ego + ' EGO · ' + n + ' RIVALS INCOMING');
+    }
+
+    /** modo história: última wave vencida */
+    onStageClear() {
+      const p = this.player;
+      this.cleared = true;
+      this.clearT = 2.4;
+      this.boss = null;
+      BL.UI.hideBoss();
+      BL.Audio.music.stop();
+      BL.Audio.play('victory');
+      BL.Input.vibrate([60, 40, 60, 40, 120]);
+      this.whiteFlash = 0.5;
+      this.shake(8);
+      this.banner('STAGE CLEAR!', 'gold', this.chapter.name);
+      BL.Projectiles.enemy.length = 0;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        e.dead = true;
+        BL.FX.burst(e.x, e.y, 6, e.def.colors.concat(['#ffffff']), 30, 130, 0.25, 0.55, 1, 3);
+      }
+      for (const o of this.orbs) o.mag = true;
+      BL.FX.ring(p.x, p.y, 10, 220, 0.8, '#ffd84a', 4);
     }
 
     onEvolve(w) {
@@ -770,6 +882,7 @@
     // ========================================================== LEVEL UP
     openLevelUp() {
       this.state = 'levelup';
+      this.banishMode = false;
       this.cards = this.build.offers(3);
       BL.Audio.play('levelup');
       BL.Input.vibrate(25);
@@ -780,15 +893,24 @@
       if (this.state !== 'levelup') return;
       const card = this.cards[i];
       if (!card) return;
+      if (this.banishMode) {
+        this.banishMode = false;
+        if (this.build.banish(card)) {
+          this.cards = this.build.offers(3);
+          BL.Audio.play('click');
+        }
+        return BL.UI.showLevelUp(this);
+      }
       this.build.apply(card);
       BL.Audio.play('select');
-      this.pendingLevels--;
+      if (this.freePicks > 0) this.freePicks--;
+      else this.pendingLevels--;
       const p = this.player;
       BL.FX.ring(p.x, p.y, 6, 50, 0.4, '#35e0ff', 3);
       BL.FX.burst(p.x, p.y, 24, ['#35e0ff', '#ffffff', '#1e90ff'], 40, 140, 0.3, 0.7, 1, 3);
       BL.FX.text(p.x, p.y - 24, 'LEVEL UP', '#35e0ff', 1, 0.9);
       BL.UI.refreshSlots(this);
-      if (this.pendingLevels > 0) {
+      if (this.pendingLevels > 0 || this.freePicks > 0) {
         this.cards = this.build.offers(3);
         BL.UI.showLevelUp(this);
       } else {
@@ -797,8 +919,16 @@
       }
     }
 
+    /** liga/desliga o modo BANISH: a próxima carta clicada é descartada */
+    toggleBanish() {
+      if (this.state !== 'levelup' || this.build.banishes <= 0) return;
+      this.banishMode = !this.banishMode;
+      BL.UI.showLevelUp(this, true);
+    }
+
     reroll() {
       if (this.state !== 'levelup' || this.build.rerolls <= 0) return;
+      this.banishMode = false;
       this.build.rerolls--;
       this.cards = this.build.offers(3);
       BL.Audio.play('click');
@@ -828,24 +958,43 @@
       BL.FX.explosion(p.x, p.y, 50, ['#ffffff', '#35e0ff', '#1e90ff', '#10204a'], true);
     }
 
-    finishGameOver() {
+    /** fim da partida: derrota (qualquer modo) ou vitória (capítulo do modo história) */
+    endRun(victory) {
       this.state = 'gameover';
       const S = BL.Save.data;
       const st = S.stats;
       const wave = this.waves.wave;
-      const rec = {
-        wave: wave > st.bestWave,
-        combo: this.maxCombo > st.bestCombo,
-        time: this.runTime > st.bestTime,
-        level: this.level > st.bestLevel,
-        kills: this.kills > st.bestKills,
-      };
-      const ego = Math.floor(this.kills * 0.15 + (wave - 1) * 12 + this.run.bossKills * 60 + this.level * 2 + this.maxCombo * 0.1) + this.run.bonusEgo;
-      st.bestWave = Math.max(st.bestWave, wave);
-      st.bestCombo = Math.max(st.bestCombo, this.maxCombo);
-      st.bestTime = Math.max(st.bestTime, this.runTime);
-      st.bestLevel = Math.max(st.bestLevel, this.level);
-      st.bestKills = Math.max(st.bestKills, this.kills);
+      const story = this.mode === 'story';
+      // recordes só valem no modo infinito
+      const rec = story
+        ? {}
+        : {
+            wave: wave > st.bestWave,
+            combo: this.maxCombo > st.bestCombo,
+            time: this.runTime > st.bestTime,
+            level: this.level > st.bestLevel,
+            kills: this.kills > st.bestKills,
+          };
+      let ego = Math.floor(this.kills * 0.08 + (wave - 1) * 12 + this.run.bossKills * 100 + this.level * 2 + this.maxCombo * 0.1) + this.run.bonusEgo;
+      let reward = 0, hasNext = false;
+      if (story && victory) {
+        const i = this.chapter.index;
+        if (S.story.cleared <= i) {
+          reward = this.chapter.reward; // bônus da primeira vitória
+          S.story.cleared = i + 1;
+        }
+        st.storyClears++;
+        hasNext = i + 1 < BL.Story.chapters.length;
+        ego += reward;
+      }
+      ego = Math.floor(ego * (1 + 0.08 * BL.Save.metaLevel('greed')));
+      if (!story) {
+        st.bestWave = Math.max(st.bestWave, wave);
+        st.bestCombo = Math.max(st.bestCombo, this.maxCombo);
+        st.bestTime = Math.max(st.bestTime, this.runTime);
+        st.bestLevel = Math.max(st.bestLevel, this.level);
+        st.bestKills = Math.max(st.bestKills, this.kills);
+      }
       st.totalKills += this.kills;
       st.totalRuns++;
       st.totalTime += this.runTime;
@@ -856,6 +1005,7 @@
       BL.UI.showGameOver({
         wave, level: this.level, kills: this.kills, combo: this.maxCombo, time: this.runTime, ego,
         bosses: this.run.bossKills, rec, char: this.player.char, damage: this.run.damage, build: this.build,
+        victory, story, chapter: this.chapter, reward, hasNext, unlocked: this.run.unlocked, total: this.waves.cfg.total,
       });
     }
 
@@ -888,7 +1038,7 @@
       }
       if (I.hit('k')) for (const e of this.enemies) if (!e.isBoss && !e.dead) this.killEnemy(e);
       if (I.hit('j')) this.flow = 100;
-      if (I.hit('b')) this.waves.spawnBoss();
+      if (I.hit('b') && !this.waves.bossAlive) this.waves.spawnBoss();
       if (I.hit('m')) {
         // maximiza tudo que já foi pego (testar evoluções)
         for (const w of this.build.weapons) w.level = w.def.max;

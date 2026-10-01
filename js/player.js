@@ -30,6 +30,10 @@
     dashLen: 1,
     dashDmg: 0,
     markBonus: 0,
+    comboDmg: 0, // dano por ponto de combo (traço do Loki)
+    awakenLvl: 0,
+    chemLvl: 0,
+    doubleShot: 0,
   });
   BL.BASE_STATS = BASE_STATS;
 

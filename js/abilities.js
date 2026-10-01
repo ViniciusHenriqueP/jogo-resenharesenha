@@ -18,6 +18,9 @@
   const GOLD = ['#fff6c4', '#ffd84a', '#ff9f1a', '#ffffff'];
   const CYAN = ['#ffffff', '#35e0ff', '#1e90ff', '#10204a'];
   const PURPLE = ['#ffffff', '#e0c3ff', '#9b5cff', '#6c2bd9'];
+  const ROYAL = ['#ffffff', '#9fc0ff', '#2f6bff', '#0a1a4a'];
+  const TEAL = ['#ffffff', '#b8fff0', '#2ee6b8', '#0d6b57'];
+  const ORANGE = ['#ffffff', '#ffd84a', '#ff7b00', '#4a4a58'];
 
   /** mira com antecipação simples do movimento do alvo */
   function leadAngle(p, t, speed) {
@@ -211,6 +214,62 @@
       evo: { need: 'finishing', lvl: 3, into: 'meteor_volley' },
     },
 
+    // ------------------------------------------------- NEW GEN WORLD 11
+    kaiser_impact: {
+      name: 'KAISER IMPACT', type: 'weapon', icon: 'kaiser_impact', max: 5,
+      desc: 'O chute mais rápido do mundo: atravessa todos os rivais em linha.',
+      up: ['Chute relâmpago que atravessa todos os rivais em linha.', '+29% de dano.', '-12% de recarga e +15% de crítico.', '+28% de dano.', '+22% de dano, recarga menor e explode no fim.'],
+      stats: (l) => ({ dmg: lv([70, 90, 90, 115, 140], l), cd: lv([4, 4, 3.5, 3.5, 3], l), crit: lv([0.15, 0.15, 0.3, 0.3, 0.3], l), boom: l >= 5, amount: 1, pierce: 99, speed: 720, range: 420 }),
+      fire(g, w, s) {
+        const p = g.player;
+        const ok = shootAtTargets(g, w, s, {
+          pick: 'tough', sfx: 'impact',
+          proj: { sprite: 'impact', r: 7, knock: 170, crit: s.crit, trail: '#2f6bff', color: '#2f6bff', glow: '#2f6bff', shake: 1, explodeEnd: s.boom ? { r: 52 * p.stats.area, dmg: 60, palette: ROYAL } : false },
+        });
+        if (ok) {
+          g.shake(3);
+          BL.FX.ring(p.x, p.y, 4, 34, 0.22, '#2f6bff', 3);
+        }
+        return ok;
+      },
+      evo: { need: 'flow_state', lvl: 3, into: 'kaiser_magnus' },
+    },
+    perfect_pass: {
+      name: 'PERFECT PASS', type: 'weapon', icon: 'perfect_pass', max: 5,
+      desc: 'Passe milimétrico: a bola vai até o rival e volta, acertando na ida e na volta.',
+      up: ['Passe que vai e volta, acertando na ida e na volta.', '+1 bola.', '+37% de dano.', '+1 bola.', '+27% de dano e recarga menor.'],
+      stats: (l) => ({ dmg: lv([16, 16, 22, 22, 28], l), cd: lv([2.4, 2.4, 2.2, 2.2, 1.9], l), amount: lv([1, 2, 2, 3, 3], l), speed: 290, range: 230 }),
+      fire: (g, w, s) => passVolley(g, w, s, { sprite: 'pass', trail: '#2ee6b8', color: '#2ee6b8' }),
+      evo: { need: 'field_reading', lvl: 3, into: 'beautiful_destruction' },
+    },
+    godspeed: {
+      name: 'GODSPEED', type: 'weapon', icon: 'godspeed', max: 5,
+      desc: 'Uma pós-imagem atravessa os rivais em linha, rápida demais para ser vista.',
+      up: ['Pós-imagem que corta os rivais em linha e os atordoa.', '+20% de alcance.', '+36% de dano e recarga menor.', '2 pós-imagens por vez.', '+33% de dano, mais alcance e recarga menor.'],
+      stats: (l) => ({ dmg: lv([22, 22, 30, 30, 40], l), cd: lv([3.2, 3.2, 2.8, 2.8, 2.4], l), amount: lv([1, 1, 1, 2, 2], l), len: lv([150, 180, 180, 180, 210], l) }),
+      fire: (g, w, s) => afterimage(g, w, s, false),
+      evo: { need: 'stamina', lvl: 3, into: 'god_sprint' },
+    },
+    sliding_tackle: {
+      name: 'SLIDING TACKLE', type: 'weapon', icon: 'sliding_tackle', max: 5,
+      desc: 'Carrinho em leque no rival mais próximo: dano, empurrão e atordoamento.',
+      up: ['Carrinho em leque: dano, empurrão e atordoamento.', '+14% de alcance.', '+38% de dano e atordoa por mais tempo.', '+15% de alcance.', '+33% de dano e recarga menor.'],
+      stats: (l) => ({ dmg: lv([26, 26, 36, 36, 48], l), cd: lv([2.4, 2.4, 2.2, 2.2, 1.9], l), radius: lv([70, 80, 80, 92, 100], l), stun: lv([0.5, 0.5, 0.8, 0.8, 1], l), knock: 260, arc: 1.05 }),
+      fire(g, w, s) {
+        const p = g.player;
+        const r = s.radius * p.stats.area;
+        let a = g.aimAngle();
+        if (a === null) {
+          const t = g.nearestEnemies(p.x, p.y, r * 1.1, 1);
+          if (!t.length) return false;
+          a = Math.atan2(t[0].y - p.y, t[0].x - p.x);
+        }
+        g.cone(p.x, p.y, a, s.arc, r, s.dmg, s.knock, s.stun, w.id, ORANGE);
+        p.kick(Math.cos(a), Math.sin(a));
+        return true;
+      },
+    },
+
     // ============================================================= EVOLUÇÕES
     perfect_finish: {
       name: 'PERFECT FINISH', type: 'weapon', icon: 'direct_shot_evo', max: 1, evolved: true,
@@ -325,6 +384,43 @@
       stats: () => ({ dmg: 55, cd: 2.4, amount: 7, radius: 50, range: 300, dur: 0.9, h: 140 }),
       fire: (g, w, s) => lobVolley(g, w, s, { sprite: 'meteor', palette: FIRE, trail: '#ff7b1a', big: true }),
     },
+    kaiser_magnus: {
+      name: 'KAISER IMPACT: MAGNUS', type: 'weapon', icon: 'kaiser_impact_evo', max: 1, evolved: true,
+      desc: 'O Impact ganha efeito: duas bolas em curva que caçam os rivais e explodem a cada toque.',
+      stats: () => ({ dmg: 120, cd: 2.6, amount: 2, pierce: 8, speed: 560, range: 460, turn: 9 }),
+      fire(g, w, s) {
+        const p = g.player;
+        const t = g.nearestEnemies(p.x, p.y, s.range * p.stats.range, s.amount, 'tough');
+        if (!t.length) return false;
+        const sp = s.speed * p.stats.projSpd;
+        for (let i = 0; i < s.amount; i++) {
+          const tg = t[i % t.length];
+          const a = Math.atan2(tg.y - p.y, tg.x - p.x) + (i % 2 ? 1 : -1) * 0.9;
+          Pr().spawn({
+            x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, behavior: 'homing', target: tg, turn: s.turn, chain: 3,
+            dmg: s.dmg, pierce: s.pierce, life: 2.6, sprite: 'magnus', r: 8, knock: 180, crit: 0.3, shake: 1,
+            explodeR: 34 * p.stats.area, explodeDmg: 40, palette: ROYAL, trail: '#ffd84a', src: w.id, color: '#2f6bff', glow: '#2f6bff',
+          });
+        }
+        p.kick(t[0].x - p.x, t[0].y - p.y);
+        BL.Audio.play('impact');
+        g.shake(4);
+        BL.FX.ring(p.x, p.y, 4, 46, 0.25, '#ffd84a', 3);
+        return true;
+      },
+    },
+    beautiful_destruction: {
+      name: 'BEAUTIFUL DESTRUCTION', type: 'weapon', icon: 'perfect_pass_evo', max: 1, evolved: true,
+      desc: 'Uma teia de passes perfeitos varre o campo e marca cada rival atingido.',
+      stats: () => ({ dmg: 36, cd: 1.6, amount: 5, speed: 340, range: 300, mark: 4 }),
+      fire: (g, w, s) => passVolley(g, w, s, { sprite: 'pass', trail: '#fff0a0', color: '#2ee6b8', glow: '#2ee6b8', scale: 1.5, r: 7, markHit: s.mark }),
+    },
+    god_sprint: {
+      name: 'GOD SPRINT', type: 'weapon', icon: 'godspeed_evo', max: 1, evolved: true,
+      desc: 'Três cortes em sequência na velocidade de Deus, deixando um rastro que queima.',
+      stats: () => ({ dmg: 60, cd: 1.5, amount: 3, len: 260 }),
+      fire: (g, w, s) => afterimage(g, w, s, true),
+    },
 
     // ============================================================= PASSIVAS
     acceleration: {
@@ -399,6 +495,21 @@
         s.maxHp += 5 * l;
       },
     },
+    awakening: {
+      name: 'AWAKENING', type: 'passive', icon: 'awakening', max: 5,
+      desc: 'O despertar acontece no limite.', up: ['Com menos de 35% de HP: +10% de dano e +4% de velocidade.'],
+      apply: (s, l) => (s.awakenLvl = l),
+    },
+    chemical_reaction: {
+      name: 'CHEMICAL REACTION', type: 'passive', icon: 'chemical_reaction', max: 5,
+      desc: 'Suas armas reagem entre si.', up: ['+2% de dano para cada habilidade ativa equipada.'],
+      apply: (s, l) => (s.chemLvl = l),
+    },
+    two_gun: {
+      name: 'TWO-GUN VOLLEY', type: 'passive', icon: 'two_gun', max: 5,
+      desc: 'Dois gatilhos, um só chute.', up: ['+8% de chance de a habilidade disparar duas vezes seguidas.'],
+      apply: (s, l) => (s.doubleShot += 0.08 * l),
+    },
   };
 
   /** cartas "curinga" quando não há mais nada para evoluir */
@@ -406,7 +517,13 @@
     heal: { name: 'RECOVERY', icon: 'heal', text: 'Recupera 30% do HP.', apply: (g) => g.heal(g.player.stats.maxHp * 0.3) },
     flow_burst: { name: 'EGO SURGE', icon: 'flow_burst', text: '+40 de FLOW imediatamente.', apply: (g) => g.addFlow(40, true) },
     ego_points: { name: 'EGO POINTS', icon: 'ego_points', text: '+20 EGO POINTS para upgrades permanentes.', apply: (g) => (g.run.bonusEgo += 20) },
+    // LIMIT BREAK: progressão infinita depois que o build está completo
+    limit_dmg: { name: 'LIMIT BREAK: POWER', icon: 'finishing', limit: 'dmg', text: '+2% de dano. Acumula sem limite.' },
+    limit_cd: { name: 'LIMIT BREAK: TEMPO', icon: 'perfect_control', limit: 'cd', text: '-1% de recarga de tudo. Acumula.' },
+    limit_hp: { name: 'LIMIT BREAK: BODY', icon: 'iron_body', limit: 'hp', text: '+5 de HP máximo. Acumula sem limite.' },
   };
+  const LIMITS = ['limit_dmg', 'limit_cd', 'limit_hp'];
+  const BONUS = ['heal', 'flow_burst', 'ego_points'];
 
   for (const id of Object.keys(DEFS)) DEFS[id].id = id;
 
@@ -442,13 +559,75 @@
     return true;
   }
 
+  /** PERFECT PASS: bolas-bumerangue nos rivais mais distantes dentro do alcance */
+  function passVolley(g, w, s, proj) {
+    const p = g.player;
+    const range = s.range * p.stats.range;
+    const t = g.nearestEnemies(p.x, p.y, range, s.amount, 'far');
+    if (!t.length) return false;
+    const sp = s.speed * p.stats.projSpd;
+    for (let i = 0; i < s.amount; i++) {
+      const tg = t[i % t.length];
+      let a = Math.atan2(tg.y - p.y, tg.x - p.x);
+      if (i >= t.length) a += Math.ceil((i - t.length + 1) / 2) * 0.35 * (i % 2 ? 1 : -1);
+      Pr().spawn(
+        Object.assign(
+          {
+            x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, behavior: 'boomerang', outT: range / sp,
+            dmg: s.dmg, pierce: 999, life: (range / sp) * 2 + 1.5, r: 5, knock: 50, spinSpd: 20, src: w.id,
+          },
+          proj
+        )
+      );
+    }
+    p.kick(t[0].x - p.x, t[0].y - p.y);
+    BL.Audio.play('kick');
+    return true;
+  }
+
+  /** GODSPEED / GOD SPRINT: pós-imagens do jogador que cortam em linha */
+  function afterimage(g, w, s, sprint) {
+    const p = g.player;
+    const len = s.len * p.stats.range;
+    const t = g.nearestEnemies(p.x, p.y, len, s.amount);
+    if (!t.length) return false;
+    const set = BL.Sprites.chars[p.sprite];
+    const speed = 640;
+    const cut = (tg) => {
+      const pl = g.player;
+      const a = tg.dead ? Math.random() * Math.PI * 2 : Math.atan2(tg.y - pl.y, tg.x - pl.x);
+      const cx = Math.cos(a), cy = Math.sin(a);
+      const dir = Math.abs(cx) > Math.abs(cy) ? (cx > 0 ? 'right' : 'left') : cy > 0 ? 'down' : 'up';
+      Pr().spawn({
+        x: pl.x, y: pl.y, vx: cx * speed, vy: cy * speed, life: len / speed, r: 12, hidden: true,
+        ghost: set[dir][BL.Sprites.POSE.dash], gx: set.ax, gy: set.ay,
+        dmg: s.dmg, pierce: 999, knock: 70, stun: 0.35, src: w.id, color: '#00e5ff',
+      });
+      BL.FX.line(pl.x, pl.y, pl.x + cx * len, pl.y + cy * len, '#00e5ff', 0.22, sprint ? 3 : 2);
+      if (sprint) {
+        // rastro de energia ao longo do corte
+        for (let d = 16; d < len; d += 26) g.zones.push({ kind: 'trail', x: pl.x + cx * d, y: pl.y + cy * d, r: 16, t: 1.2, max: 1.2, tickT: 0.1, dmg: 12, src: w.id });
+      }
+      BL.Audio.play('dash');
+    };
+    for (let i = 0; i < s.amount; i++) {
+      const tg = t[i % t.length];
+      if (i === 0) cut(tg);
+      else g.schedule(i * 0.13, () => cut(tg));
+    }
+    return true;
+  }
+
   // =================================================================== BUILD
   class Build {
     constructor(game) {
       this.g = game;
       this.weapons = [];
       this.passives = [];
-      this.rerolls = BL.Save.metaLevel('reroll');
+      this.rerolls = BL.Save.metaLevel('reroll') + (game.player.char.rerolls || 0);
+      this.banishes = BL.Save.metaLevel('banish');
+      this.banned = new Set();
+      this.limit = { dmg: 0, cd: 0, hp: 0 };
     }
 
     find(id) {
@@ -497,9 +676,14 @@
       s.xpMul *= 1 + 0.06 * M('talent');
       s.regen += 0.2 * M('recovery');
       s.armor += M('armor');
+      s.crit += 0.02 * M('crit');
       for (const ps of this.passives) ps.def.apply(s, ps.level);
       for (const w of this.weapons) if (w.def.apply) w.def.apply(s, w.level);
       if (p.char && p.char.apply) p.char.apply(s); // traço exclusivo do personagem
+      if (s.chemLvl) s.might *= 1 + 0.02 * s.chemLvl * this.weapons.length;
+      s.might *= 1 + 0.02 * this.limit.dmg;
+      s.cdMul *= Math.pow(0.99, this.limit.cd);
+      s.maxHp += 5 * this.limit.hp;
       s.cdMul = Math.max(0.4, s.cdMul);
       const oldMax = p.stats.maxHp;
       p.stats = s;
@@ -523,6 +707,11 @@
           const ok = d.fire(g, w, st);
           w.cdMax = st.cd * cdm;
           w.cd = ok === false ? 0.12 : w.cdMax;
+          // TWO-GUN VOLLEY: chance de repetir o disparo na hora
+          if (ok !== false && !w.twoGun && Math.random() < g.player.stats.doubleShot) {
+            w.cd = 0.14;
+            w.twoGun = true;
+          } else w.twoGun = false;
         }
       }
     }
@@ -542,10 +731,11 @@
         cards.push({ kind: 'evo', id: w.id, into: into.id, name: into.name, icon: into.icon, type: 'EVOLUTION', text: into.desc, isNew: false, level: 0 });
       }
       const pool = [];
-      for (const w of this.weapons) if (!w.def.evolved && w.level < w.def.max) pool.push({ id: w.id, w: 3 });
-      for (const p of this.passives) if (p.level < p.def.max) pool.push({ id: p.id, w: 3 });
-      if (this.weapons.length < BL.CFG.WEAPON_SLOTS) for (const id of WEAPONS) if (!this.find(id) && !this.isEvolvedFrom(id)) pool.push({ id, w: 2.2 });
-      if (this.passives.length < BL.CFG.PASSIVE_SLOTS) for (const id of PASSIVES) if (!this.find(id)) pool.push({ id, w: 2 });
+      const ban = this.banned;
+      for (const w of this.weapons) if (!w.def.evolved && w.level < w.def.max && !ban.has(w.id)) pool.push({ id: w.id, w: 3 });
+      for (const p of this.passives) if (p.level < p.def.max && !ban.has(p.id)) pool.push({ id: p.id, w: 3 });
+      if (this.weapons.length < BL.CFG.WEAPON_SLOTS) for (const id of WEAPONS) if (!this.find(id) && !this.isEvolvedFrom(id) && !ban.has(id)) pool.push({ id, w: 2.2 });
+      if (this.passives.length < BL.CFG.PASSIVE_SLOTS) for (const id of PASSIVES) if (!this.find(id) && !ban.has(id)) pool.push({ id, w: 2 });
       // favorece passivas que completam uma evolução pendente
       for (const e of pool) {
         for (const w of this.weapons) if (w.def.evo && w.def.evo.need === e.id && this.level(e.id) < w.def.evo.lvl) e.w += 1.5;
@@ -559,11 +749,14 @@
         const text = def.type === 'passive' ? def.up[0] : def.up[Math.min(next, def.up.length) - 1];
         cards.push({ kind: cur ? 'up' : 'new', id: pick.id, name: def.name, icon: def.icon, type: def.type === 'weapon' ? 'SKILL' : 'PASSIVE', text: cur ? text : def.desc + (def.type === 'passive' ? ' ' + text : ''), isNew: !cur, level: next, max: def.max });
       }
-      const fill = ['heal', 'flow_burst', 'ego_points'];
-      while (cards.length < n) {
-        const id = fill[cards.length % 3];
+      // build completo: LIMIT BREAK (acumulável) + 1 bônus
+      const fill = U.shuffle(LIMITS.slice()).slice(0, 2).concat(U.shuffle(BONUS.slice()), LIMITS);
+      for (let i = 0; cards.length < n; i++) {
+        const id = fill[i % fill.length];
+        if (cards.some((c) => c.id === id)) continue;
         const f = FILLERS[id];
-        cards.push({ kind: 'filler', id, name: f.name, icon: f.icon, type: 'BONUS', text: f.text, isNew: false, level: 0 });
+        const lim = f.limit ? this.limit[f.limit] : 0;
+        cards.push({ kind: 'filler', id, name: f.name, icon: f.icon, type: f.limit ? 'LIMIT BREAK' + (lim ? ' x' + lim : '') : 'BONUS', text: f.text, isNew: false, level: 0 });
       }
       return cards;
     }
@@ -574,8 +767,21 @@
 
     apply(card) {
       if (card.kind === 'evo') this.evolve(card.id);
-      else if (card.kind === 'filler') FILLERS[card.id].apply(this.g);
-      else this.add(card.id);
+      else if (card.kind === 'filler') {
+        const f = FILLERS[card.id];
+        if (f.limit) {
+          this.limit[f.limit]++;
+          this.recalc();
+        } else f.apply(this.g);
+      } else this.add(card.id);
+    }
+
+    /** descarta uma carta: ela não aparece mais nesta partida */
+    banish(card) {
+      if (this.banishes <= 0 || (card.kind !== 'new' && card.kind !== 'up')) return false;
+      this.banishes--;
+      this.banned.add(card.id);
+      return true;
     }
   }
 

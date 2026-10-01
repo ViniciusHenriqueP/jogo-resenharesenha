@@ -31,6 +31,7 @@
     <div id="hud-wave" class="panel">
       <div id="wave-text">WAVE 01</div>
       <div id="time-text">TIME 60</div>
+      <button id="skip-btn" class="hidden" data-act="skip">SKIP ▶▶ <span class="kb-only">[Q]</span></button>
     </div>
 
     <div id="hud-right">
@@ -75,23 +76,49 @@
       <div class="title-ego">EGO SURVIVOR</div>
     </div>
     <nav class="menu-buttons">
-      <button data-act="play" class="btn primary">PLAY</button>
+      <button data-act="play" class="btn primary">ENDLESS MODE</button>
+      <button data-act="story" class="btn">STORY MODE</button>
       <button data-act="howto" class="btn">HOW TO PLAY</button>
       <button data-act="upgrades" class="btn">UPGRADES</button>
       <button data-act="settings" class="btn">SETTINGS</button>
     </nav>
     <div class="menu-foot" id="menu-foot"></div>
-    <div class="menu-ver">v1.1 · <span class="kb-only">ENTER para jogar</span><span class="touch-only">toque em PLAY</span></div>
+    <div class="menu-ver">v1.2 · <span class="kb-only">ENTER para jogar</span><span class="touch-only">toque em ENDLESS MODE</span></div>
     <button class="btn small fs-btn" data-act="fullscreen" title="Tela cheia">⛶</button>
   </div>
 
   <!-- ======================= SELEÇÃO DE PERSONAGEM ===================== -->
   <div id="select" class="screen hidden">
     <h2 class="select-title">CHOOSE YOUR STRIKER</h2>
+    <div id="select-mode" class="select-mode"></div>
     <div id="char-list"></div>
+    <div id="char-detail"></div>
     <div class="btn-row">
       <button class="btn" data-act="back">BACK</button>
-      <button class="btn primary" data-act="start">START ▶</button>
+      <button class="btn primary" id="start-btn" data-act="start">START ▶</button>
+    </div>
+  </div>
+
+  <!-- ============================ MODO HISTÓRIA ======================= -->
+  <div id="story" class="screen hidden">
+    <div class="window wide">
+      <h2>STORY MODE</h2>
+      <div class="scroll" id="story-list"></div>
+      <button class="btn" data-act="back">BACK</button>
+    </div>
+  </div>
+
+  <!-- abertura do capítulo (falas do Ego) -->
+  <div id="intro" class="screen hidden">
+    <div class="window">
+      <div id="intro-chapter" class="intro-chapter"></div>
+      <h2 id="intro-title"></h2>
+      <div id="intro-lines" class="intro-lines"></div>
+      <div id="intro-goal" class="intro-goal"></div>
+      <div class="btn-row">
+        <button class="btn" data-act="back">BACK</button>
+        <button class="btn primary" data-act="begin">KICK OFF ▶</button>
+      </div>
     </div>
   </div>
 
@@ -105,20 +132,24 @@
           <p><kbd>W A S D</kbd> / <kbd>SETAS</kbd> — mover em 8 direções</p>
           <p><kbd>ESPAÇO</kbd> / <kbd>SHIFT</kbd> — DASH (invencível durante o movimento)</p>
           <p><kbd>F</kbd> — ativar o FLOW quando a barra estiver cheia</p>
-          <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> — escolher carta no level up · <kbd>R</kbd> — reroll</p>
+          <p><kbd>Q</kbd> — SKIP WAVE: pula o resto da wave (os rivais que faltavam vêm todos de uma vez)</p>
+          <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> — escolher carta no level up · <kbd>R</kbd> — reroll · <kbd>B</kbd> — banish</p>
           <p><kbd>ESC</kbd> / <kbd>P</kbd> — pausar</p>
-          <p>No celular: joystick virtual à esquerda, botões <b>FLOW</b> e <b>DASH</b> à direita.</p>
+          <p>No celular: joystick virtual à esquerda, botões <b>FLOW</b> e <b>DASH</b> à direita, <b>SKIP</b> no painel da wave.</p>
         </section>
         <section>
           <h3>O JOGO</h3>
           <p>Escolha entre <b>ISAGI</b>, <b>RIN</b>, <b>NAGI</b> e <b>CHIGIRI</b>: cada um começa com habilidades diferentes e tem um traço exclusivo.</p>
+          <p><b class="y">ENDLESS MODE</b>: waves sem fim, cada vez mais difíceis. <b class="y">STORY MODE</b>: 5 capítulos curtos, da Primeira Seleção até o New Gen World 11.</p>
           <p>Você é um atacante preso num programa de treinamento brutal. Rivais invadem a arena em <b>waves</b> cada vez maiores. Suas habilidades chutam <b>automaticamente</b> — sua função é se posicionar, ler o campo e sobreviver.</p>
           <p>Rivais derrotados deixam <b class="c">cristais de XP</b>. Encha a barra para subir de nível e escolher 1 entre 3 cartas de habilidade.</p>
-          <p>A cada <b>5 waves</b> aparece um <b class="r">BOSS</b>: um rival de elite com ataques especiais. Fique atento às áreas vermelhas no chão!</p>
+          <p>A cada <b>5 waves</b> aparece um <b class="r">BOSS</b> do <b>NEW GEN WORLD 11</b>: <b>LOKI</b>, <b>HUGO</b>, <b>SAE</b> e <b>KAISER</b>. Fique atento às áreas marcadas no chão — a linha azul é o <b class="c">KAISER IMPACT</b>!</p>
+          <p>Derrote um deles no <b>ENDLESS MODE</b> e ele vira <b class="y">personagem jogável</b>.</p>
         </section>
         <section>
           <h3>EVOLUÇÃO</h3>
           <p>Cada habilidade vai até o nível <b>V</b>. Uma habilidade no nível V + a passiva certa no nível III libera uma <b class="y">EVOLUÇÃO</b> extremamente poderosa. Ex.: <b>DIRECT SHOT V + LONG SHOT III = PERFECT FINISH</b>. Veja todas as receitas em UPGRADES → CODEX.</p>
+          <p>Com o build completo, as cartas viram <b class="y">LIMIT BREAK</b>: bônus pequenos que acumulam sem limite.</p>
         </section>
         <section>
           <h3>COMBO & FLOW</h3>
@@ -165,13 +196,16 @@
   <!-- ============================ LEVEL UP ============================ -->
   <div id="levelup" class="overlay hidden">
     <div class="lu-head">
-      <h2 class="lu-title">LEVEL UP!</h2>
+      <h2 class="lu-title" id="lu-title">LEVEL UP!</h2>
       <div id="lu-level" class="lu-level"></div>
     </div>
     <div id="cards"></div>
     <div class="lu-foot">
       <div id="lu-build" class="build-icons"></div>
-      <button id="reroll-btn" class="btn small" data-act="reroll">REROLL</button>
+      <div class="btn-row">
+        <button id="reroll-btn" class="btn small" data-act="reroll">REROLL</button>
+        <button id="banish-btn" class="btn small danger" data-act="banish">BANISH</button>
+      </div>
     </div>
   </div>
 
@@ -192,14 +226,16 @@
   <!-- ============================ GAME OVER =========================== -->
   <div id="gameover" class="overlay hidden">
     <div class="window wide">
-      <h2 class="go-title">GAME OVER</h2>
+      <h2 class="go-title" id="go-title">GAME OVER</h2>
       <div id="go-stats" class="stat-grid big"></div>
       <div id="go-build" class="build-icons"></div>
       <h3>DANO POR HABILIDADE</h3>
       <div id="go-damage"></div>
       <div id="go-ego" class="go-ego"></div>
+      <div id="go-unlock" class="go-unlock hidden"></div>
       <div class="btn-row">
-        <button class="btn primary" data-act="retry">RETRY</button>
+        <button class="btn primary hidden" id="go-next" data-act="next">NEXT CHAPTER ▶</button>
+        <button class="btn primary" id="go-retry" data-act="retry">RETRY</button>
         <button class="btn" data-act="menu">MENU</button>
       </div>
     </div>
@@ -219,9 +255,12 @@
   <script src="js/player.js"></script>
   <script src="js/enemy.js"></script>
   <script src="js/abilities.js"></script>
+  <script src="js/story.js"></script>
   <script src="js/waves.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
+
+  
 </body>
 </html>

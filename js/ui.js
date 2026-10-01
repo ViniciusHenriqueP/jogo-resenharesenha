@@ -42,6 +42,8 @@
     game: null,
     screen: 'menu',
     settingsReturn: 'menu',
+    runOpts: { mode: 'endless' }, // modo escolhido no menu (infinito / capítulo da história)
+    introBack: 'select',
     upTab: 'shop',
     slotEls: [],
     fpsT: 0,
@@ -66,9 +68,17 @@
       const g = this.game;
       switch (act) {
         case 'play':
-          this.selected = BL.Save.data.character;
-          this.showScreen('select');
-          this.renderSelect();
+          this.runOpts = { mode: 'endless' };
+          this.openSelect();
+          break;
+        case 'story':
+          this.showScreen('story');
+          this.renderStory();
+          break;
+        case 'chapter':
+          if (!BL.Story.isOpen(+el.dataset.i)) return;
+          this.runOpts = { mode: 'story', chapter: +el.dataset.i };
+          this.openSelect();
           break;
         case 'pick':
           if (this.selected === el.dataset.id) return this.action('start');
@@ -76,9 +86,25 @@
           this.renderSelect();
           break;
         case 'start':
-          this.enterFullscreen();
-          this.hideAllScreens();
-          g.newRun(this.selected);
+          if (!BL.Save.isUnlocked(BL.Characters.get(this.selected))) return;
+          if (this.runOpts.mode === 'story') this.showIntro('select');
+          else this.launch();
+          break;
+        case 'begin':
+          this.launch();
+          break;
+        case 'next':
+          // tela de vitória -> próximo capítulo com o mesmo personagem
+          this.runOpts = { mode: 'story', chapter: g.chapter.index + 1 };
+          this.selected = BL.Save.data.character;
+          this.showIntro('menu');
+          break;
+        case 'skip':
+          g.skipWave();
+          if (el && el.blur) el.blur(); // senão o ESPAÇO (dash) "clica" no botão de novo
+          break;
+        case 'banish':
+          g.toggleBanish();
           break;
         case 'fullscreen':
           if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
@@ -99,6 +125,13 @@
             $('settings').classList.add('hidden');
             $('pause').classList.remove('hidden');
             this.screen = 'pause';
+          } else if (this.screen === 'select' && this.runOpts.mode === 'story') {
+            this.showScreen('story');
+            this.renderStory();
+          } else if (this.screen === 'intro' && this.introBack === 'select') this.openSelect();
+          else if (this.screen === 'intro') {
+            this.hideAllScreens();
+            g.toMenu();
           } else this.showScreen('menu');
           break;
         case 'tab':
@@ -157,37 +190,87 @@
     },
 
     hideAllScreens() {
-      for (const id of ['menu', 'select', 'howto', 'upgrades', 'settings', 'levelup', 'pause', 'gameover']) $(id).classList.add('hidden');
+      for (const id of ['menu', 'select', 'story', 'intro', 'howto', 'upgrades', 'settings', 'levelup', 'pause', 'gameover']) $(id).classList.add('hidden');
       clearInterval(this.portraitTimer);
     },
 
     // ============================================== SELEÇÃO DE PERSONAGEM
+    openSelect() {
+      this.selected = BL.Save.data.character;
+      this.showScreen('select');
+      this.renderSelect();
+    },
+    launch() {
+      this.enterFullscreen();
+      this.hideAllScreens();
+      this.game.newRun(this.selected, this.runOpts);
+    },
+
+    /** fileira de personagens + painel de detalhes do selecionado */
     renderSelect() {
       const D = BL.Abilities.DEFS;
       const P = BL.Sprites.portraits;
       const cur = this.selected;
-      const bar = (label, v) => `<div class="cbar"><span>${label}</span>${Array.from({ length: 5 }, (_, k) => `<i class="${k < v ? 'on' : ''}"></i>`).join('')}</div>`;
+      const c = BL.Characters.get(cur);
+      const open = (ch) => BL.Save.isUnlocked(ch);
+      const ro = this.runOpts;
+      $('select-mode').textContent = ro.mode === 'story' ? 'STORY MODE · CHAPTER ' + (ro.chapter + 1) + ' · ' + BL.Story.chapters[ro.chapter].name : 'ENDLESS MODE';
       $('char-list').innerHTML = BL.Characters.list
         .map(
-          (c, i) => `<button class="char ${c.id === cur ? 'on' : ''}" data-act="pick" data-id="${c.id}" style="--cc:${c.color}">
+          (ch, i) => `<button class="char ${ch.id === cur ? 'on' : ''} ${open(ch) ? '' : 'locked'}" data-act="pick" data-id="${ch.id}" style="--cc:${ch.color}">
             <div class="ch-key">${BL.Input.touchMode ? '' : '[' + (i + 1) + ']'}</div>
-            <div class="portrait"><img src="${P[c.id][0]}" data-id="${c.id}" alt=""></div>
-            <div class="ch-name">${esc(c.name)}</div>
-            <div class="ch-title">${esc(c.title)}</div>
-            <div class="ch-start">${c.start.map(([id, l]) => `<div>${icon(D[id].icon)}<span>${esc(D[id].name)}${l > 1 ? ' ' + U.roman(l) : ''}</span></div>`).join('')}</div>
-            <div class="ch-trait"><b>${esc(c.trait.name)}</b><span>${esc(c.trait.desc)}</span></div>
-            <div class="ch-bars">${bar('SPD', c.bars.spd)}${bar('DMG', c.bars.dmg)}${bar('HP', c.bars.hp)}${bar('TEC', c.bars.tec)}</div>
+            <div class="portrait"><img src="${open(ch) ? P[ch.id][0] : BL.Sprites.portraitsLocked[ch.id]}" data-id="${ch.id}" alt=""></div>
+            <div class="ch-name">${esc(ch.short)}</div>
           </button>`
         )
         .join('');
+      const det = $('char-detail');
+      det.style.setProperty('--cc', c.color);
+      if (open(c)) {
+        const bar = (label, v) => `<div class="cbar"><span>${label}</span>${Array.from({ length: 5 }, (_, k) => `<i class="${k < v ? 'on' : ''}"></i>`).join('')}</div>`;
+        det.innerHTML = `<div class="cd-head"><div class="ch-name">${esc(c.name)}</div><div class="ch-title">${esc(c.title)}</div></div>
+          <div class="ch-start">${c.start.map(([id, l]) => `<div>${icon(D[id].icon)}<span>${esc(D[id].name)}${l > 1 ? ' ' + U.roman(l) : ''}</span></div>`).join('')}</div>
+          <div class="ch-trait"><b>${esc(c.trait.name)}</b><span>${esc(c.trait.desc)}</span></div>
+          <div class="ch-bars">${bar('SPD', c.bars.spd)}${bar('DMG', c.bars.dmg)}${bar('HP', c.bars.hp)}${bar('TEC', c.bars.tec)}</div>`;
+      } else {
+        const wave = (BL.bossIndex(c.unlock.boss) + 1) * BL.CFG.BOSS_EVERY;
+        det.innerHTML = `<div class="cd-lock"><b>LOCKED</b><span>Derrote <em>${esc(c.name)}</em> no <em>ENDLESS MODE</em> (boss da wave ${wave}) para jogar com ele.</span></div>`;
+      }
+      $('start-btn').classList.toggle('disabled', !open(c));
       // o personagem selecionado "corre" no lugar
       clearInterval(this.portraitTimer);
+      if (!open(c)) return;
       let f = 0;
       const img = document.querySelector(`#char-list img[data-id="${cur}"]`);
       this.portraitTimer = setInterval(() => {
         f = (f + 1) % 4;
         if (img) img.src = P[cur][f];
       }, 140);
+    },
+
+    // ======================================================= MODO HISTÓRIA
+    renderStory() {
+      const St = BL.Story;
+      $('story-list').innerHTML = `<div class="chapters">${St.chapters
+        .map((c, i) => {
+          const open = St.isOpen(i), done = St.isCleared(i);
+          return `<button class="chapter ${open ? '' : 'locked'} ${done ? 'done' : ''}" data-act="chapter" data-i="${i}">
+            <div class="cp-n">${done ? '★' : U.pad2(i + 1)}</div>
+            <div class="cp-main"><b>${esc(c.name)}</b><span class="cp-sub">${esc(c.sub)}</span><span>${esc(open ? c.goal : 'Conclua o capítulo anterior para liberar.')}</span></div>
+            <div class="cp-side"><span>${c.waves} WAVES</span><b>${done ? 'CLEARED' : open ? '+' + c.reward + ' EP' : 'LOCKED'}</b></div>
+          </button>`;
+        })
+        .join('')}</div>`;
+    },
+    /** abertura do capítulo; back = para onde o BACK volta ('select' | 'menu') */
+    showIntro(back) {
+      const c = BL.Story.chapters[this.runOpts.chapter];
+      this.introBack = back;
+      $('intro-chapter').textContent = 'CHAPTER ' + (c.index + 1) + ' · ' + c.sub;
+      $('intro-title').textContent = c.name;
+      $('intro-lines').innerHTML = c.intro.map((l, i) => `<p style="--d:${i * 0.45}s"><b>EGO</b>${esc(l)}</p>`).join('');
+      $('intro-goal').innerHTML = `<em>GOAL</em><b>${esc(c.goal)}</b>${c.startLevels ? `<span>Você começa com ${c.startLevels} cartas de bônus.</span>` : ''}`;
+      this.showScreen('intro');
     },
     selectStep(d) {
       const L = BL.Characters.list;
@@ -260,8 +343,9 @@
       setText($('hp-text'), Math.ceil(p.hp) + '/' + Math.round(p.stats.maxHp));
       toggle($('hud-player'), 'low', p.hp / p.stats.maxHp < 0.3);
       setW($('xp-fill'), g.xp / g.xpNeed);
-      setText($('wave-text'), 'WAVE ' + U.pad2(g.waves.wave));
       const wv = g.waves;
+      setText($('wave-text'), 'WAVE ' + U.pad2(wv.wave) + (g.chapter ? '/' + U.pad2(wv.cfg.total) : ''));
+      toggle($('skip-btn'), 'hidden', !!g.dying || g.cleared || !wv.canSkip());
       const tl = wv.timeLeft <= 0 && (wv.bossAlive || wv.bossPending > 0) ? 'DEFEAT THE BOSS' : 'TIME ' + U.pad2(Math.ceil(wv.timeLeft));
       setText($('time-text'), tl);
       toggle($('hud-wave'), 'boss', !!g.boss);
@@ -346,11 +430,13 @@
     },
 
     // ============================================================ LEVEL UP
-    showLevelUp(g) {
+    /** keep = só redesenha (modo BANISH ligado/desligado), sem reanimar as cartas */
+    showLevelUp(g, keep) {
       const el = $('levelup');
       el.classList.remove('hidden');
       $('touch-ui').classList.add('hidden');
       const cards = $('cards');
+      cards.classList.toggle('banish', g.banishMode);
       cards.innerHTML = g.cards
         .map((c, i) => {
           let lvl = '';
@@ -358,7 +444,7 @@
           else if (c.kind === 'up') lvl = `LV ${U.roman(c.level - 1)} → <b>${U.roman(c.level)}</b>`;
           else if (c.kind === 'evo') lvl = '<span class="evo-tag">★ EVOLUÇÃO ★</span>';
           const pips = c.max ? `<div class="pips">${Array.from({ length: c.max }, (_, k) => `<i class="${k < c.level ? 'on' : ''}"></i>`).join('')}</div>` : '';
-          return `<button class="card ${c.kind} locked" data-act="card" data-i="${i}" style="--d:${i * 70}ms">
+          return `<button class="card ${c.kind} ${keep ? 'still' : 'locked'}" data-act="card" data-i="${i}" style="--d:${i * 70}ms">
             <div class="ctype">${c.type}</div>
             <div class="cicon">${icon(c.icon)}</div>
             <div class="cname">${esc(c.name)}</div>
@@ -374,8 +460,15 @@
       const rb = $('reroll-btn');
       rb.classList.toggle('hidden', g.build.rerolls <= 0);
       rb.textContent = `REROLL (${g.build.rerolls}) [R]`;
+      const bb = $('banish-btn');
+      bb.classList.toggle('hidden', g.build.banishes <= 0);
+      bb.classList.toggle('on', g.banishMode);
+      bb.textContent = g.banishMode ? 'PICK A CARD TO BANISH' : `BANISH (${g.build.banishes}) [B]`;
       $('lu-build').innerHTML = this.buildIcons(g.build);
-      $('lu-level').textContent = 'LEVEL ' + (g.level - g.pendingLevels + 1);
+      // modo história: cartas de bônus antes da primeira wave
+      const free = g.freePicks > 0;
+      $('lu-title').textContent = free ? 'EGO TRAINING' : 'LEVEL UP!';
+      $('lu-level').textContent = free ? g.freePicks + (g.freePicks > 1 ? ' BONUS CARDS' : ' BONUS CARD') : 'LEVEL ' + (g.level - g.pendingLevels + 1);
     },
     hideLevelUp() {
       $('levelup').classList.add('hidden');
@@ -425,9 +518,18 @@
       $('touch-ui').classList.add('hidden');
       $('boss-bar').classList.add('hidden');
       const rec = (k) => (r.rec[k] ? '<em>NEW RECORD!</em>' : '');
+      const next = r.victory && r.hasNext;
+      const title = $('go-title');
+      title.textContent = r.victory ? (r.hasNext ? 'STAGE CLEAR!' : "WORLD'S BEST STRIKER!") : 'GAME OVER';
+      title.classList.toggle('win', !!r.victory);
+      $('go-next').classList.toggle('hidden', !next);
+      $('go-retry').classList.toggle('primary', !next);
+      const un = $('go-unlock');
+      un.classList.toggle('hidden', !r.unlocked.length);
+      un.innerHTML = r.unlocked.map((c) => `<img src="${BL.Sprites.portraits[c.id][0]}" alt=""><span>NEW STRIKER UNLOCKED: <b style="color:${c.color}">${esc(c.name)}</b></span>`).join('');
       $('go-stats').innerHTML = `
-        <div class="go-char" style="--cc:${r.char.color}"><img src="${BL.Sprites.portraits[r.char.id][0]}" alt=""><span>STRIKER</span><b>${esc(r.char.name)}</b></div>
-        <div><span>WAVE REACHED</span><b>${r.wave}</b>${rec('wave')}</div>
+        <div class="go-char" style="--cc:${r.char.color}"><img src="${BL.Sprites.portraits[r.char.id][0]}" alt=""><span>${r.story ? 'CH. ' + (r.chapter.index + 1) + ' · ' + esc(r.chapter.name) : 'STRIKER'}</span><b>${esc(r.char.name)}</b></div>
+        <div><span>${r.story ? 'WAVE' : 'WAVE REACHED'}</span><b>${r.wave}${r.story ? '/' + r.total : ''}</b>${rec('wave')}</div>
         <div><span>LEVEL</span><b>${r.level}</b>${rec('level')}</div>
         <div><span>KILLS</span><b>${r.kills}</b>${rec('kills')}</div>
         <div><span>BEST COMBO</span><b>${r.combo}</b>${rec('combo')}</div>
@@ -443,7 +545,7 @@
           return `<div class="dm">${d ? icon(d.icon) : icon('flow_burst')}<span>${esc(name)}</span><div class="dbar"><i style="width:${(v / max) * 100}%"></i></div><b>${Math.round(v)}</b></div>`;
         })
         .join('');
-      $('go-ego').innerHTML = `+${r.ego} EGO POINTS <small>(total ${BL.Save.data.ego})</small>`;
+      $('go-ego').innerHTML = `+${r.ego} EGO POINTS <small>(${r.reward ? 'first clear +' + r.reward + ' · ' : ''}total ${BL.Save.data.ego})</small>`;
       $('go-build').innerHTML = this.buildIcons(r.build);
       $('gameover').classList.remove('hidden');
       this.screen = 'gameover';
@@ -474,6 +576,8 @@
           ['MAX TIME', U.fmtTime(s.bestTime)], ['BEST LEVEL', s.bestLevel], ['BEST KILLS', s.bestKills],
           ['BOSSES DEFEATED', s.bossesDefeated], ['EVOLUTIONS', s.evolutions], ['RUNS', s.totalRuns],
           ['TOTAL TIME', U.fmtTime(s.totalTime)],
+          ['STORY', S.story.cleared + '/' + BL.Story.chapters.length],
+          ['STRIKERS', BL.Characters.list.filter((c) => BL.Save.isUnlocked(c)).length + '/' + BL.Characters.list.length],
         ];
         body.innerHTML = `<div class="records">${rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('')}</div>`;
       } else {
@@ -510,6 +614,7 @@
         <div class="row"><span>DAMAGE NUMBERS</span><button class="btn small toggle" id="set-dmg"></button></div>
         <div class="row"><span>AIM (DIRECT SHOT)</span><button class="btn small toggle" id="set-aim"></button></div>
         <div class="row"><span>SHOW FPS</span><button class="btn small toggle" id="set-fps"></button></div>
+        <label class="row"><span>JOYSTICK SENS. (CELULAR)</span><input type="range" min="0.4" max="1" step="0.05" id="set-joy" value="${s.joySens}"><b id="set-joy-v"></b></label>
         <div class="row"><span>VIBRAÇÃO (CELULAR)</span><button class="btn small toggle" id="set-vib"></button></div>
         <div class="row"><span>TELA CHEIA AUTO (CELULAR)</span><button class="btn small toggle" id="set-fs"></button></div>
         <div class="row"><span>PROGRESSO</span><button class="btn small danger" data-act="reset">APAGAR SAVE</button></div>`;
@@ -520,6 +625,7 @@
         $('set-fps').textContent = s.showFps ? 'ON' : 'OFF';
         $('set-vib').textContent = s.vibration ? 'ON' : 'OFF';
         $('set-fs').textContent = s.fullscreen ? 'ON' : 'OFF';
+        $('set-joy-v').textContent = Math.round(s.joySens * 100) + '%';
         $('fps').classList.toggle('hidden', !s.showFps);
       };
       const save = () => {
@@ -533,6 +639,10 @@
       });
       $('set-sfx').addEventListener('input', (e) => {
         s.sfx = +e.target.value;
+        save();
+      });
+      $('set-joy').addEventListener('input', (e) => {
+        s.joySens = +e.target.value;
         save();
       });
       const tog = (id, fn) =>

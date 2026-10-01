@@ -7,9 +7,12 @@
  * Para adicionar um personagem: nova entrada em LIST com
  * { id, name, short, title, color, look, hair: {down, up, side},
  *   start: [[abilityId, nível]], trait: {name, desc}, apply(stats), bars }
+ * Opcionais: unlock: { boss } (liberado ao derrotar esse boss no modo
+ * infinito; o boss usa este mesmo sprite em escala 2x) · rerolls: n.
  *
  * Cabelos são mapas de pixels 20 colunas (layout do herói 20x28):
- *   'h' = cor base · 'H' = brilho · 'd' = sombra · '.' = vazio
+ *   'h' = cor base · 'H' = brilho · 'd' = sombra · 't' = pontas (look.hairT)
+ *   '.' = vazio
  * Rosto (visão de frente): pele em x5..14, y4..13; olhos em x5..7 e x12..14, y8..10.
  * ========================================================================= */
 (function () {
@@ -284,6 +287,253 @@
         s.maxHp -= 15;
       },
       bars: { spd: 5, dmg: 3, hp: 2, tec: 3 },
+    },
+    // ------------------------------------------------ NEW GEN WORLD 11
+    {
+      id: 'loki',
+      name: 'JULIAN LOKI',
+      short: 'LOKI',
+      title: 'A VELOCIDADE DE DEUS',
+      color: '#00e5ff',
+      unlock: { boss: 'loki' },
+      look: Object.assign({}, KIT, { skin: '#8a5a3c', hair: '#1d1d26', hair2: '#4b4b60', hairD: '#07070b', eye: '#ffd400', eyeD: '#8a6a00', blush: '#a8644a', mouth: '#5a2f22', shirt: '#16224f', shirt2: '#00e5ff', socks: '#0b6f86', number: '7' }),
+      hair: {
+        down: [
+          '....................',
+          '....................',
+          '......dddddddd......',
+          '.....dhhHHHhhhd.....',
+          '....dhhHhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhdhhhhdhhd....',
+          '....dd..d..d..dd....',
+        ],
+        up: [
+          '....................',
+          '....................',
+          '......dddddddd......',
+          '.....dhhhHHhhhd.....',
+          '....dhhhHHhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '.....dhhhhhhhhd.....',
+          '......dddddddd......',
+        ],
+        side: [
+          '....................',
+          '....................',
+          '.......ddddddd......',
+          '......dhhHHhhhd.....',
+          '.....dhhHhhhhhhd....',
+          '.....dhhhhhhhhhd....',
+          '.....dhhhhhhhdd.....',
+          '.....dhhhhhd........',
+          '.....dhhhd..........',
+          '......ddd...........',
+        ],
+      },
+      start: [['godspeed', 1], ['acceleration', 1]],
+      trait: { name: 'GODSPEED', desc: '+15% de velocidade. Cada ponto de COMBO dá +0,25% de dano (máx. +25%).' },
+      apply(s) {
+        s.speed *= 1.15;
+        s.comboDmg = 0.0025;
+      },
+      bars: { spd: 5, dmg: 3, hp: 3, tec: 4 },
+    },
+    {
+      id: 'hugo',
+      name: 'VIVIAN HUGO',
+      short: 'HUGO',
+      title: 'A MURALHA DE FERRO',
+      color: '#ff7b00',
+      unlock: { boss: 'hugo' },
+      look: Object.assign({}, KIT, { skin: '#e2b58f', hair: '#2b2f3a', hair2: '#6b7285', hairD: '#101218', eye: '#ff7b00', eyeD: '#8a3a00', shirt: '#3a3a46', shirt2: '#ff7b00', socks: '#8a4200', number: '3' }),
+      hair: {
+        down: [
+          '.......d.dd.d.......',
+          '......dhdhhdhd......',
+          '.....dhhhHHhhhd.....',
+          '....dhhhHHhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhd.dhhd.dhd....',
+          '....dd...dd...dd....',
+        ],
+        up: [
+          '.......d.dd.d.......',
+          '......dhdhhdhd......',
+          '.....dhhhhhhhhd.....',
+          '....dhhhhHHhhhhd....',
+          '....dhhhHHhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhd....',
+          '.....dhhhhhhhhd.....',
+          '......dhhhhhhd......',
+          '.......dddddd.......',
+        ],
+        side: [
+          '........d.dd.d......',
+          '.......dhdhhdhd.....',
+          '......dhhhHHhhhd....',
+          '.....dhhhHHhhhhhd...',
+          '.....dhhhhhhhhhhd...',
+          '.....dhhhhhhhhhd....',
+          '.....dhhhhhhdd......',
+          '.....dhhhhhd........',
+          '.....dhhhd..........',
+          '......ddd...........',
+        ],
+      },
+      start: [['sliding_tackle', 1], ['off_ball', 1]],
+      trait: { name: 'IRON WALL', desc: '+40 HP e +2 de armadura. -10% de velocidade.' },
+      apply(s) {
+        s.maxHp += 40;
+        s.armor += 2;
+        s.speed *= 0.9;
+      },
+      bars: { spd: 2, dmg: 3, hp: 5, tec: 3 },
+    },
+    {
+      id: 'sae',
+      name: 'ITOSHI SAE',
+      short: 'SAE',
+      title: 'O GÊNIO DE CLASSE MUNDIAL',
+      color: '#ff5c8a',
+      unlock: { boss: 'sae' },
+      rerolls: 1,
+      look: Object.assign({}, KIT, { skin: '#f3cfae', hair: '#8e3a4a', hair2: '#c2606f', hairD: '#4a1622', eye: '#2ee6b8', eyeD: '#0d6b57', shirt: '#1b3a8f', shirt2: '#f5f7ff', socks: '#1b3a8f', number: '10' }),
+      hair: {
+        down: [
+          '....................',
+          '......dddddddd......',
+          '.....dhhhhHHhhd.....',
+          '....dhhhhHHhhhhd....',
+          '...dhhhhHhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhdhhhd...',
+          '...dhd.dhhhd..dhd...',
+          '...dd....dd....dd...',
+          '...d............d...',
+        ],
+        up: [
+          '....................',
+          '......dddddddd......',
+          '.....dhhhhhhhhd.....',
+          '....dhhhhHHhhhhd....',
+          '...dhhhhHHhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '....dhhhhhhhhhhd....',
+          '....ddhdhhhhdhdd....',
+          '......d.dddd.d......',
+        ],
+        side: [
+          '....................',
+          '......ddddddd.......',
+          '.....dhhhHHhhd......',
+          '....dhhhHHhhhhd.....',
+          '....dhhhhhhhhhhd....',
+          '....dhhhhhhhhhhhd...',
+          '....dhhhhhhhhhdhd...',
+          '....dhhhhhhhd..d....',
+          '....dhhhhhd.........',
+          '....dhhhhd..........',
+          '.....dhhd...........',
+          '......dd............',
+        ],
+      },
+      start: [['perfect_pass', 2]],
+      trait: { name: 'WORLD-CLASS', desc: '+15% de alcance e área, -8% de recarga e +1 reroll por partida.' },
+      apply(s) {
+        s.range *= 1.15;
+        s.area *= 1.15;
+        s.cdMul *= 0.92;
+      },
+      bars: { spd: 3, dmg: 3, hp: 3, tec: 5 },
+    },
+    {
+      id: 'kaiser',
+      name: 'MICHAEL KAISER',
+      short: 'KAISER',
+      title: 'O IMPERADOR',
+      color: '#2f6bff',
+      unlock: { boss: 'kaiser' },
+      look: Object.assign({}, KIT, { skin: '#f6d6bc', hair: '#f2d264', hair2: '#fff3b0', hairD: '#a8862a', hairT: '#2f6bff', eye: '#3a8bff', eyeD: '#16398f', shirt: '#17171f', shirt2: '#2f6bff', socks: '#17171f', number: '10' }),
+      hair: {
+        // 't' = mechas azuis; o 't' no pescoço (visão de frente) é a tatuagem da rosa azul
+        down: [
+          '....................',
+          '......dddddddd......',
+          '.....dhhHHHhhhd.....',
+          '....dhhHHhhhthhd....',
+          '...dhhHhhhhhthhhd...',
+          '...dhhhhhhhhtthhd...',
+          '...dhhhhhdhhdtthd...',
+          '...dhhhd.dh..dthd...',
+          '...dh..........hd...',
+          '...dh..........hd...',
+          '...dh..........td...',
+          '...dt..........td...',
+          '...dt..........td...',
+          '...dt...t......td...',
+          '...dt..........td...',
+          '...dt..........td...',
+          '....d..........d....',
+        ],
+        up: [
+          '....................',
+          '......dddddddd......',
+          '.....dhhhhhhhhd.....',
+          '....dhhhHHhhhhhd....',
+          '...dhhhHHhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhhhhhhhhhhhd...',
+          '...dhhthhhhhhthhd...',
+          '...dhtthhhhhhtthd...',
+          '...dtthhthhthhttd...',
+          '...dtthttttttthtd...',
+          '...dtttttttttttd....',
+          '...dttdttttttdttd...',
+          '...dttdttddttdttd...',
+          '....dd.dd..dd.dd....',
+        ],
+        side: [
+          '....................',
+          '......ddddddd.......',
+          '.....dhhHHhhhd......',
+          '....dhhHhhhhthd.....',
+          '...dhhhhhhhhthhd....',
+          '...dhhhhhhhhtthhd...',
+          '...dhhhhhhhhhtthhd..',
+          '...dhhhhhhhd..dtd...',
+          '...dhhhhhhd.....d...',
+          '...dhhhhhd..........',
+          '...dhhthd...........',
+          '...dhtthd...........',
+          '...dtttd............',
+          '...dtttd............',
+          '...dtttd............',
+          '...dttdd............',
+          '....dd..............',
+        ],
+      },
+      start: [['kaiser_impact', 1], ['direct_shot', 1]],
+      trait: { name: 'EMPEROR', desc: '+25% de velocidade dos chutes e +10% de crítico. -10 HP.' },
+      apply(s) {
+        s.projSpd *= 1.25;
+        s.crit += 0.1;
+        s.maxHp -= 10;
+      },
+      bars: { spd: 3, dmg: 5, hp: 2, tec: 4 },
     },
   ];
 

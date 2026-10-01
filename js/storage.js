@@ -17,6 +17,7 @@
       showFps: false,
       vibration: true,
       fullscreen: true, // tela cheia automática ao jogar no celular
+      joySens: 1, // sensibilidade do joystick virtual (0.4 a 1)
     },
     stats: {
       bestWave: 0,
@@ -29,11 +30,14 @@
       totalTime: 0,
       bossesDefeated: 0,
       evolutions: 0,
+      storyClears: 0,
     },
     ego: 0,
     character: 'isagi',
     meta: {},
     codex: {},
+    unlocked: {}, // personagens liberados ao derrotar o boss no modo infinito
+    story: { cleared: 0 }, // nº de capítulos concluídos do modo história
   });
 
   function merge(base, data) {
@@ -80,6 +84,10 @@
     metaLevel(id) {
       return this.data.meta[id] || 0;
     },
+    /** personagens com `unlock` só ficam disponíveis depois de derrotar o boss */
+    isUnlocked(char) {
+      return !char.unlock || !!this.data.unlocked[char.id];
+    },
     buyMeta(id) {
       const up = BL.MetaUpgrades.find((u) => u.id === id);
       if (!up) return false;
@@ -104,7 +112,11 @@
     { id: 'recovery', name: 'RECOVERY', icon: 'stamina', max: 3, desc: '+0.2 HP/s de regeneração', cost: (l) => 100 + l * 80 },
     { id: 'armor', name: 'BODY BALANCE', icon: 'iron_body', max: 3, desc: '+1 de armadura', cost: (l) => 120 + l * 100 },
     { id: 'reroll', name: 'REROLL', icon: 'meta_vision', max: 3, desc: '+1 reroll de cartas por partida', cost: (l) => 150 + l * 120 },
-    { id: 'flowstart', name: 'FLOW START', icon: 'flow_state', max: 4, desc: 'Começa a partida com +25% de FLOW', cost: (l) => 70 + l * 60 },
+    { id: 'flowstart', name: 'FLOW START', icon: 'flow_state', max: 4, desc: 'Começa a partida com +20% de FLOW', cost: (l) => 70 + l * 60 },
+    { id: 'crit', name: 'KILLER INSTINCT', icon: 'predator_eye', max: 5, desc: '+2% de chance de crítico', cost: (l) => 110 + l * 90 },
+    { id: 'greed', name: 'EGOIST', icon: 'ego_points', max: 5, desc: '+8% de EGO POINTS por partida', cost: (l) => 140 + l * 110 },
+    { id: 'banish', name: 'BANISH', icon: 'banish', max: 3, desc: '+1 descarte de carta por partida (ela não volta)', cost: (l) => 180 + l * 140 },
+    { id: 'revive', name: 'SECOND HALF', icon: 'heal', max: 1, desc: 'Revive 1 vez por partida com 50% do HP', cost: () => 600 },
   ];
 
   Save.load();

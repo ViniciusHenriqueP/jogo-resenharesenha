@@ -19,8 +19,9 @@
     bounce: false, trail: null, trailT: 0, src: 'direct_shot', crit: 0, execute: 0,
     target: null, turn: 0, speed: 0, chain: 0, chainRange: 150,
     orbR: 0, ang: 0, angSpd: 0, // órbita
+    back: false, outT: 0, markHit: 0, ghost: null, ghostT: 0, // bumerangue / pós-imagem
     sx: 0, sy: 0, tx: 0, ty: 0, t: 0, dur: 1, h: 40, // lob
-    dead: false, shake: 0, color: '#fff', size: 1, scale: 1, glow: null, palette: null, owner: 0, z: 0,
+    dead: false, shake: 0, stun: 0, gx: 0, gy: 0, hidden: false, color: '#fff', size: 1, scale: 1, glow: null, palette: null, owner: 0, z: 0,
   };
 
   const Pr = (BL.Projectiles = {
@@ -60,6 +61,8 @@
       p.sprite = o.sprite || 'enemy';
       p.spin = 0;
       p.accel = o.accel || 0;
+      p.turn = o.turn || 0; // curva (rad/s) durante turnT segundos
+      p.turnT = o.turnT || 0;
       p.trail = o.trail || null;
       this.enemy.push(p);
       return p;
@@ -98,6 +101,30 @@
             p.y += p.vy * dt;
             break;
           }
+          case 'boomerang': {
+            // vai reto por outT segundos e depois volta para o jogador
+            if (!p.back) {
+              p.outT -= dt;
+              if (p.outT <= 0) {
+                p.back = true;
+                p.hit.clear();
+              }
+            } else {
+              const dx = pl.x - p.x, dy = pl.y - p.y;
+              const d = Math.hypot(dx, dy) || 1;
+              if (d < 10) {
+                p.dead = true;
+                p.life = 0;
+                break;
+              }
+              p.vx = (dx / d) * p.speed * 1.25;
+              p.vy = (dy / d) * p.speed * 1.25;
+              p.life = Math.max(p.life, 0.2);
+            }
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            break;
+          }
           case 'orbit': {
             p.ang += p.angSpd * dt;
             p.x = pl.x + Math.cos(p.ang) * p.orbR;
@@ -131,10 +158,18 @@
           }
         }
 
+        if (p.ghost) {
+          p.ghostT -= dt;
+          if (p.ghostT <= 0) {
+            p.ghostT = 0.02;
+            BL.FX.ghost(p.ghost, p.x - p.gx, p.y - p.gy, 0.22, 0.6);
+          }
+        }
+
         if (p.behavior === 'lob') continue;
 
         // obstáculos
-        if (p.behavior !== 'orbit') {
+        if (p.behavior !== 'orbit' && p.behavior !== 'boomerang' && !p.ghost) {
           const o = C.pointSolid(map, p.x, p.y);
           if (o) {
             if (p.bounce) {
@@ -177,7 +212,9 @@
             knock: p.knock,
             crit: p.crit,
             execute: p.execute,
+            stun: p.stun,
           });
+          if (p.markHit && !e.dead) e.markT = Math.max(e.markT, p.markHit);
           if (p.shake) game.shake(p.shake);
           if (p.explodeR && p.explodeOnHit) game.explode(e.x, e.y, p.explodeR, p.explodeDmg, p.src, p.palette, false, p.knock);
           BL.FX.burst(e.x, e.y, 4, ['#ffffff', p.color], 30, 90, 0.1, 0.25, 1, 2);
@@ -213,6 +250,14 @@
           p.vx *= 1 + p.accel * dt;
           p.vy *= 1 + p.accel * dt;
         }
+        if (p.turnT > 0) {
+          const a = p.turn * Math.min(dt, p.turnT);
+          p.turnT -= dt;
+          const c = Math.cos(a), sn = Math.sin(a);
+          const vx = p.vx * c - p.vy * sn;
+          p.vy = p.vx * sn + p.vy * c;
+          p.vx = vx;
+        }
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         if (p.trail && Math.random() < 0.5) BL.FX.spawn(p.x, p.y, 0, 0, 0.2, 2, p.trail, 0);
@@ -239,7 +284,7 @@
       const B = BL.Sprites.balls;
       const x0 = view.x - 20, y0 = view.y - 40, x1 = view.x + view.w + 20, y1 = view.y + view.h + 20;
       for (const p of this.list) {
-        if (p.dead || p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
+        if (p.dead || p.hidden || p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
         const frames = B[p.sprite] || B.normal;
         const img = frames[(Math.floor(p.spin) & 3)];
         const z = p.z || 0;

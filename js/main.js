@@ -58,6 +58,7 @@
       else if (I.hit('2')) game.chooseCard(1);
       else if (I.hit('3')) game.chooseCard(2);
       else if (I.hit('r')) game.reroll();
+      else if (I.hit('b')) game.toggleBanish();
     } else if (game.state === 'paused') {
       if (I.hit('escape', 'p')) {
         if (BL.UI.screen === 'settings') BL.UI.action('back');
@@ -70,11 +71,19 @@
       if (I.hit('arrowright', 'd')) BL.UI.selectStep(1);
       if (I.hit('enter', ' ')) BL.UI.action('start');
       if (I.hit('escape')) BL.UI.action('back');
+    } else if (BL.UI.screen === 'intro') {
+      // abertura de capítulo (vinda da seleção ou da tela de vitória)
+      if (I.hit('enter', ' ')) BL.UI.action('begin');
+      if (I.hit('escape')) BL.UI.action('back');
+    } else if (game.state === 'menu' && BL.UI.screen === 'story') {
+      const C = BL.Story.chapters;
+      for (let i = 0; i < C.length; i++) if (I.hit(String(i + 1))) BL.UI.action('chapter', { dataset: { i } });
+      if (I.hit('escape')) BL.UI.action('back');
     } else if (game.state === 'menu') {
       if (I.hit('enter') && BL.UI.screen === 'menu') BL.UI.action('play');
       if (I.hit('escape') && BL.UI.screen !== 'menu') BL.UI.action('back');
     } else if (game.state === 'gameover') {
-      if (I.hit('enter')) BL.UI.action('retry');
+      if (I.hit('enter')) BL.UI.action(document.getElementById('go-next').classList.contains('hidden') ? 'retry' : 'next');
     }
   }
 

@@ -5,6 +5,7 @@
  * ========================================================================= */
 (function () {
   const BL = window.BL;
+  const U = BL.U;
 
   const I = (BL.Input = {
     keys: new Set(),
@@ -44,7 +45,9 @@
       const zone = document.getElementById('joy-zone');
       const base = document.getElementById('joy-base');
       const knob = document.getElementById('joy-knob');
-      const R = 52;
+      // sensibilidade menor = precisa arrastar o dedo mais longe para a velocidade máxima
+      const KNOB = 52;
+      const radius = () => KNOB / U.clamp(BL.Save.data.settings.joySens || 1, 0.4, 1);
       const place = () => {
         base.style.left = this.joy.ox + 'px';
         base.style.top = this.joy.oy + 'px';
@@ -82,6 +85,7 @@
         for (const t of e.changedTouches) {
           if (t.identifier !== this.joy.id) continue;
           e.preventDefault();
+          const R = radius();
           let dx = t.clientX - this.joy.ox, dy = t.clientY - this.joy.oy;
           const d = Math.hypot(dx, dy);
           if (d > R) {
@@ -94,7 +98,8 @@
           }
           this.joy.x = dx / R;
           this.joy.y = dy / R;
-          knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+          const kv = KNOB / R; // o botão visual continua dentro da base
+          knob.style.transform = `translate(calc(-50% + ${dx * kv}px), calc(-50% + ${dy * kv}px))`;
         }
       };
       const endT = (e) => {

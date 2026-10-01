@@ -478,7 +478,7 @@
       ctx.fillRect(HOX + x, HOY + y, w, h);
     };
     const map = (rows, xo, yo) => {
-      const pal = { h: o.hair, H: o.hair2, d: o.hairD };
+      const pal = { h: o.hair, H: o.hair2, d: o.hairD, t: o.hairT };
       for (let y = 0; y < rows.length; y++)
         for (let x = 0; x < rows[y].length; x++) {
           const c = pal[rows[y][x]];
@@ -699,26 +699,6 @@
       shirt: '#141418', shirt2: '#ff2d55', shorts: '#0a0a0c', socks: '#ff2d55',
       boots: '#ff2d55', eye: '#ff2d55', num: '#ff2d55',
     },
-    boss_raizen: {
-      skin: '#f2c7a0', hair: '#fff27a', hair2: '#ffffff', hairStyle: 'spiky',
-      shirt: '#ffd400', shirt2: '#00e5ff', shorts: '#15151a', socks: '#00e5ff',
-      boots: '#fff', eye: '#00e5ff', num: '#15151a',
-    },
-    boss_tetsuda: {
-      skin: '#8b5a3c', hair: '#1b1b1b', hairStyle: 'buzz', bulk: true,
-      shirt: '#4a4a58', shirt2: '#ff7b00', shorts: '#26262e', socks: '#ff7b00',
-      boots: '#111', eye: '#ff7b00', num: '#ff7b00',
-    },
-    boss_mikagami: {
-      skin: '#f7dcc6', hair: '#c9b3ff', hair2: '#ffffff', hairStyle: 'long',
-      shirt: '#f0f0ff', shirt2: '#b061ff', shorts: '#3a1670', socks: '#b061ff',
-      boots: '#f0f0ff', eye: '#b061ff', num: '#b061ff',
-    },
-    boss_kurogane: {
-      skin: '#e0ae88', hair: '#121212', hair2: '#ff1e3c', hairStyle: 'swept', bulk: true,
-      shirt: '#0c0c0e', shirt2: '#ff1e3c', shorts: '#0c0c0e', socks: '#ff1e3c',
-      boots: '#ff1e3c', eye: '#ff1e3c', num: '#ff1e3c',
-    },
   };
 
   // ==================================================================== BOLAS
@@ -898,6 +878,14 @@
     field_reading: ['.rr....rr.', '.rr....rr.', '.ww....ww.', '.rr....rr.', '.rr....rr.', '.rr....rr.', '..rr..rr..', '...rrrr...', '..........', 'c.c.c.c.c.'],
     finishing: ['....y.....', '...yyy....', 'yyyywyyyy.', '.yywwwyy..', '..ywwwy...', '..yy.yy...', '.yy...yy..', '.y.....y..', '..........', 'wwwwwwwwww'],
     stamina: ['..........', '.rr...rr..', 'rwrr.rrrr.', 'rwrrrrrrr.', 'rrrrrrrrr.', '.rrrrrrr..', '..rrrrr...', '...rrr....', '....r.....', '..........'],
+    kaiser_impact: ['.y.y.y....', '.yyyyy....', '..........', 'bb..kkkk..', '.bbkwwwwk.', 'bbbkwkkwk.', '.bbkwwwwk.', 'bb..kkkk..', '..........', '..........'],
+    perfect_pass: ['..........', '......c...', 'cccccccc..', '......c...', '..........', '...g......', '..gggggggg', '...g......', '..........', '..........'],
+    godspeed: ['c.........', 'cc...yyy..', '.....yy...', 'ccc.yy....', '...yyyyy..', 'cc...yy...', '....yy....', 'c..yy.....', '...y......', '..........'],
+    sliding_tackle: ['......o...', '.......o..', '........o.', 'wwww....o.', 'wwwww...o.', 'kkwwwww.o.', '.kkkkkk.o.', '.......o..', '......o...', '..........'],
+    awakening: ['....r.....', '...rr..r..', '..rrr.rr..', '..rrrrrr..', '.rryyrrrr.', '.ryyyyrrr.', '.ryywyyrr.', '.rryyyyr..', '..rryyrr..', '...rrrr...'],
+    chemical_reaction: ['..........', '.ccc..ppp.', 'c...cp...p', 'c...pc...p', 'c...cp...p', '.ccc..ppp.', '....ww....', '...wyyw...', '....ww....', '..........'],
+    two_gun: ['..........', '.kkk......', 'kwwwk.yy..', 'kwkwk.....', 'kwwwk.kkk.', '.kkk.kwwwk', '.yy..kwkwk', '.....kwwwk', '......kkk.', '..........'],
+    banish: ['..........', '.rr....rr.', '.rrr..rrr.', '..rrrrrr..', '...rrrr...', '...rrrr...', '..rrrrrr..', '.rrr..rrr.', '.rr....rr.', '..........'],
     heal: ['..........', '....gg....', '....gg....', '..gggggg..', '..gggggg..', '....gg....', '....gg....', '..........', '..........', '..........'],
     flow_burst: ['....cc....', '...cccc...', '..ccwwcc..', '.ccwwwwcc.', 'ccwwwwwwcc', '.ccwwwwcc.', '..ccwwcc..', '...cccc...', '....cc....', '..........'],
     ego_points: ['..pppppp..', '.pmmmmmmp.', 'pmm....mmp', 'pm.pppp.mp', 'pm.p....mp', 'pm.pppp.mp', 'pm.p....mp', 'pmm.pppmmp', '.pmmmmmmp.', '..pppppp..'],
@@ -978,13 +966,20 @@
   // ==================================================================== INIT
   S.init = function () {
     for (const k of Object.keys(CHAR_DEFS)) {
-      buildChar(k, CHAR_DEFS[k], k.startsWith('boss_') ? 2 : 1);
+      buildChar(k, CHAR_DEFS[k], 1);
     }
     // personagens jogáveis + retratos grandes (frente, correndo) para a seleção
     S.portraits = {};
+    S.portraitsLocked = {};
     for (const c of BL.Characters.list) {
       const set = buildHero('p_' + c.id, c.look, c.hair);
       S.portraits[c.id] = set.down.slice(0, 4).map((f) => scaleUp(f, 5).toDataURL());
+      if (!c.unlock) continue;
+      S.portraitsLocked[c.id] = scaleUp(silhouette(set.down[0], '#0d1330'), 5).toDataURL();
+      // o boss é o próprio herói em escala 2x
+      const boss = { scale: 2, ax: set.ax * 2, ay: set.ay * 2, feet: set.feet * 2 };
+      for (const k of ['down', 'up', 'right', 'left', 'fdown', 'fup', 'fright', 'fleft']) boss[k] = set[k].map((f) => scaleUp(f, 2));
+      S.chars['boss_' + c.unlock.boss] = boss;
     }
     S.balls.normal = buildBall(5, '#f5f7ff', '#10131f', '#05060c');
     S.balls.small = buildBall(3, '#e8fbff', '#35e0ff', '#05060c');
@@ -998,6 +993,10 @@
     S.balls.enemyBig = buildBall(10, '#ff5577', '#2a0008', '#12000a');
     S.balls.volley = buildBall(6, '#ffffff', '#1e90ff', '#05060c');
     S.balls.meteor = buildBall(8, '#ffe8b0', '#ff7b1a', '#2a1000');
+    S.balls.impact = buildBall(9, '#dfe8ff', '#2f6bff', '#06102a');
+    S.balls.magnus = buildBall(11, '#fff0a0', '#2f6bff', '#06102a');
+    S.balls.pass = buildBall(6, '#d8fff4', '#2ee6b8', '#03231c');
+    S.balls.kaiser = buildBall(11, '#cfe0ff', '#2f6bff', '#06102a');
 
     S.orbs = [
       buildOrb(5, '#35e0ff', '#c8fbff', '#1a8fb0'),

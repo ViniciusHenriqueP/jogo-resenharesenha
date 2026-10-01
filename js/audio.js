@@ -141,6 +141,14 @@
         osc('sawtooth', 120, 40, t, 0.22, 0.3);
       },
     },
+    impact: {
+      gap: 0.15,
+      fn(t) {
+        noise(t, 0.09, 0.4, 'highpass', 2200, 0.8, null, 500);
+        osc('sawtooth', 1400, 90, t, 0.16, 0.22);
+        osc('sine', 150, 38, t, 0.3, 0.5);
+      },
+    },
     hit: {
       gap: 0.028,
       fn(t) {
@@ -275,6 +283,16 @@
       fn(t) {
         [262, 330, 392, 523, 659, 784, 1047].forEach((f, i) => osc('square', f, f * 1.01, t + i * 0.05, 0.3, 0.08));
         osc('sawtooth', 100, 1600, t, 0.8, 0.1);
+      },
+    },
+    victory: {
+      gap: 1,
+      fn(t) {
+        whistle(t, 0.18, 0.1);
+        whistle(t + 0.25, 0.18, 0.1);
+        whistle(t + 0.5, 0.7, 0.1);
+        [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => osc('square', f, f, t + 0.9 + i * 0.09, 0.25, 0.09));
+        [523, 784, 1047].forEach((f) => osc('triangle', f, f, t + 1.5, 0.9, 0.12, null, 0.02));
       },
     },
     gameover: {

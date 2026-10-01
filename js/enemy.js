@@ -20,12 +20,15 @@
     elite: { name: 'ELITE', hp: 280, speed: 47, dmg: 14, xp: 140, r: 8, mass: 5, ai: 'elite', sprite: 'elite', colors: ['#ff2d55', '#141418'], elite: true },
   });
 
+  // NEW GEN WORLD 11 — viram personagens jogáveis ao serem derrotados no modo
+  // infinito (characters.js: unlock). O sprite é o do próprio herói em escala 2x.
   const BOSSES = (BL.BossDefs = [
-    { key: 'raizen', name: 'KAITO RAIZEN', title: 'THE LIGHTNING WINGER', sprite: 'boss_raizen', hp: 2800, speed: 62, dmg: 18, r: 13, xp: 1400, color: '#00e5ff', palette: ['#00e5ff', '#ffd400', '#ffffff'] },
-    { key: 'tetsuda', name: 'GOUKI TETSUDA', title: 'THE IRON WALL', sprite: 'boss_tetsuda', hp: 9000, speed: 36, dmg: 24, r: 16, xp: 2400, color: '#ff7b00', palette: ['#ff7b00', '#4a4a58', '#ffffff'] },
-    { key: 'mikagami', name: 'SHION MIKAGAMI', title: "THE EMPEROR'S EYE", sprite: 'boss_mikagami', hp: 18000, speed: 50, dmg: 20, r: 13, xp: 3400, color: '#b061ff', palette: ['#b061ff', '#f0f0ff', '#e0c3ff'] },
-    { key: 'kurogane', name: 'REN KUROGANE', title: 'THE ABSOLUTE STRIKER', sprite: 'boss_kurogane', hp: 32000, speed: 58, dmg: 26, r: 15, xp: 5000, color: '#ff1e3c', palette: ['#ff1e3c', '#0c0c0e', '#ffffff'] },
+    { key: 'loki', name: 'JULIAN LOKI', short: 'LOKI', title: 'THE GODSPEED', sprite: 'boss_loki', hp: 3200, speed: 64, dmg: 18, r: 13, xp: 1400, color: '#00e5ff', palette: ['#00e5ff', '#ffd400', '#ffffff'] },
+    { key: 'hugo', name: 'VIVIAN HUGO', short: 'HUGO', title: 'THE IRON WALL', sprite: 'boss_hugo', hp: 11000, speed: 36, dmg: 26, r: 16, xp: 2400, color: '#ff7b00', palette: ['#ff7b00', '#4a4a58', '#ffffff'] },
+    { key: 'sae', name: 'ITOSHI SAE', short: 'SAE', title: 'THE WORLD-CLASS GENIUS', sprite: 'boss_sae', hp: 22000, speed: 50, dmg: 24, r: 13, xp: 3400, color: '#ff5c8a', palette: ['#ff5c8a', '#2ee6b8', '#ffffff'] },
+    { key: 'kaiser', name: 'MICHAEL KAISER', short: 'KAISER', title: 'THE EMPEROR', sprite: 'boss_kaiser', hp: 40000, speed: 58, dmg: 32, r: 15, xp: 5000, color: '#2f6bff', palette: ['#2f6bff', '#ffd84a', '#ffffff'] },
   ]);
+  BL.bossIndex = (key) => BOSSES.findIndex((b) => b.key === key);
 
   const tmp = { x: 0, y: 0 };
   const buf = [];
@@ -76,19 +79,27 @@
       return e;
     },
 
-    createBoss(game, idx, cycle, x, y) {
+    /**
+     * idx: posição em BossDefs · n: ordem do boss na partida (1 = primeiro).
+     * O HP cresce com n^1.75 a partir da posição natural do boss, então um
+     * boss que volta num ciclo seguinte é sempre mais forte que o anterior.
+     */
+    createBoss(game, idx, n, x, y, opts) {
+      opts = opts || {};
       const bd = BOSSES[idx];
       const e = this.create(game, 'rival', x, y);
-      const hpMul = 1 + cycle * 1.4;
+      const cycle = Math.max(0, Math.floor((n - 1) / BOSSES.length));
+      const hpMul = Math.pow(Math.max(1, n / (idx + 1)), 1.75) * (opts.hpMul || 1);
+      const late = Math.max(0, n - (idx + 1)); // quantos bosses depois do "natural"
       e.type = 'boss';
       e.def = { name: bd.name, colors: bd.palette, ai: 'boss' };
       e.isBoss = true;
       e.boss = bd;
       e.r = bd.r;
       e.maxHp = e.hp = Math.round(bd.hp * hpMul);
-      e.speed = bd.speed * (1 + cycle * 0.1);
-      e.dmg = bd.dmg * (1 + cycle * 0.35);
-      e.xp = Math.round(bd.xp * (1 + cycle));
+      e.speed = bd.speed * (1 + Math.min(4, cycle) * 0.08);
+      e.dmg = bd.dmg * (1 + late * 0.15) * (opts.dmgMul || 1);
+      e.xp = Math.round(bd.xp * (1 + late * 0.5));
       e.mass = 999;
       e.sprite = bd.sprite;
       e.st = 'intro';
@@ -98,6 +109,7 @@
       e.enraged = false;
       e.tempo = 1;
       e.cycleLevel = cycle;
+      e.alpha = 1;
       e.displayName = bd.name + (cycle ? ' ' + U.roman(cycle + 1) : '');
       return e;
     },
@@ -249,7 +261,6 @@
     draw(ctx, game, e) {
       const S = BL.Sprites;
       const set = S.chars[e.sprite];
-      const sc = set.scale;
       const x = Math.round(e.x), y = Math.round(e.y);
       const t = game.time;
 
@@ -258,7 +269,7 @@
         ctx.globalAlpha = 0.5;
         ctx.drawImage(S.misc.shadow, x - 7, y + 6);
         if (Math.floor(e.spawnT * 14) % 2) return (ctx.globalAlpha = 1);
-        ctx.drawImage(set.fdown[0], x - 10 * sc, y - 12 * sc);
+        ctx.drawImage(set.fdown[0], x - set.ax, y - set.ay);
         ctx.globalAlpha = 1;
         return;
       }
@@ -276,12 +287,12 @@
         ctx.globalAlpha = (0.25 + Math.sin(t * 8) * 0.08) * e.alpha;
         ctx.fillStyle = e.boss.color;
         ctx.beginPath();
-        ctx.ellipse(x, y + 14, 24, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + set.feet - 4, 24, 8, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = e.alpha;
         const z = e.z || 0;
         const shs = z > 0 ? Math.max(0.4, 1 - z / 120) : 1;
-        ctx.drawImage(S.misc.shadowBig, x - 15 * shs, y + 14, 30 * shs, 9 * shs);
+        ctx.drawImage(S.misc.shadowBig, x - 15 * shs, y + set.feet - 6, 30 * shs, 9 * shs);
       } else {
         ctx.drawImage(S.misc.shadow, x - 7, y + 6);
       }
@@ -292,12 +303,12 @@
       else if (e.moving) idx = Math.floor(e.animT) % 4;
       const frames = e.flash > 0 ? set['f' + e.dir] : set[e.dir];
       const img = frames[idx];
-      ctx.drawImage(img, x - 10 * sc, y - 12 * sc - (e.z || 0));
+      ctx.drawImage(img, x - set.ax, y - set.ay - (e.z || 0));
       if (e.buffT > 0 && !e.isBoss) {
         ctx.drawImage(S.misc.buff, x + 4, y - 16 + (Math.floor(t * 6) % 2));
       }
       if (e.markT > 0) {
-        ctx.drawImage(S.misc.markEye, x - 3, y - 12 * sc - 8 + (Math.floor(t * 5) % 2));
+        ctx.drawImage(S.misc.markEye, x - 3, y - set.ay - 8 + (Math.floor(t * 5) % 2));
       }
       ctx.globalAlpha = 1;
       // barra de vida para elites e defensores feridos
@@ -351,7 +362,7 @@
       e.enraged = true;
       e.tempo = 0.72;
       e.speed *= 1.25;
-      game.banner(e.boss.name.split(' ')[1] + ' ENTERS FLOW!', 'boss');
+      game.banner(e.boss.short + ' ENTERS FLOW!', 'boss');
       BL.FX.ring(e.x, e.y, 10, 120, 0.6, e.boss.color, 4);
       game.shake(8);
       BL.Audio.play('flow');
@@ -360,7 +371,7 @@
   function chargeStep(game, e, dt) {
     if (Math.random() < 0.6) {
       const set = BL.Sprites.chars[e.sprite];
-      BL.FX.ghost(set[e.dir][5], e.x - 20, e.y - 24, 0.3, 0.5);
+      BL.FX.ghost(set[e.dir][5], e.x - set.ax, e.y - set.ay, 0.3, 0.5);
     }
     return mv(e.cx, e.cy, e.chargeSpd);
   }
@@ -375,7 +386,7 @@
 
   const BOSS_AI = {
     // ---------------------------------------------- velocidade / investidas
-    raizen(game, e, dt, tdx, tdy) {
+    loki(game, e, dt, tdx, tdy) {
       enrageCheck(game, e);
       e.stT -= dt;
       switch (e.st) {
@@ -384,17 +395,20 @@
           return mv(0, 0, 0);
         case 'chase':
           if (e.stT <= 0) {
-            e.n = e.enraged ? 4 : 3;
+            e.n = e.enraged ? 5 : 3;
             next(e, 'windup', 0.6);
             startWindup(game, e, 280, 22, '#00e5ff');
           }
-          if (Math.random() < 0.3) BL.FX.ghost(BL.Sprites.chars[e.sprite][e.dir][0], e.x - 20, e.y - 24, 0.2, 0.3);
+          if (Math.random() < 0.5) {
+            const set = BL.Sprites.chars[e.sprite];
+            BL.FX.ghost(set[e.dir][0], e.x - set.ax, e.y - set.ay, 0.25, 0.35);
+          }
           return mv(tdx, tdy, e.speed);
         case 'windup':
           e.pose = 'kick';
           if (e.stT <= 0) {
             next(e, 'charge', 0.55);
-            e.chargeSpd = 420;
+            e.chargeSpd = 440;
             BL.Audio.play('dash');
           }
           return mv(0, 0, 0);
@@ -420,7 +434,7 @@
     },
 
     // --------------------------------------------------- força física
-    tetsuda(game, e, dt, tdx, tdy) {
+    hugo(game, e, dt, tdx, tdy) {
       enrageCheck(game, e);
       e.stT -= dt;
       const pl = game.player;
@@ -491,7 +505,7 @@
     },
 
     // ---------------------------------------------------- visão de jogo
-    mikagami(game, e, dt, tdx, tdy, d) {
+    sae(game, e, dt, tdx, tdy, d) {
       enrageCheck(game, e);
       e.stT -= dt;
       const pl = game.player;
@@ -516,7 +530,7 @@
             } else if (pick === 2) next(e, 'blinkOut', 0.35);
             else {
               next(e, 'command', 0.8);
-              BL.FX.telegraph({ kind: 'circle', x: e.x, y: e.y, r: 60, dur: e.stT, color: '#b061ff', follow: e, grow: true });
+              BL.FX.telegraph({ kind: 'circle', x: e.x, y: e.y, r: 60, dur: e.stT, color: e.boss.color, follow: e, grow: true });
             }
           }
           if (d < 150) return mv(-tdx, -tdy, e.speed);
@@ -540,11 +554,11 @@
           e.alpha = Math.max(0.05, e.stT / 0.35);
           if (e.stT <= 0) {
             const a = Math.random() * Math.PI * 2;
-            BL.FX.burst(e.x, e.y, 20, ['#b061ff', '#e0c3ff'], 40, 120, 0.3, 0.6, 1, 3);
+            BL.FX.burst(e.x, e.y, 20, e.boss.palette, 40, 120, 0.3, 0.6, 1, 3);
             e.x = pl.x + Math.cos(a) * 150;
             e.y = pl.y + Math.sin(a) * 150;
             BL.Collision.resolve(game.map, e);
-            BL.FX.burst(e.x, e.y, 20, ['#b061ff', '#e0c3ff'], 40, 120, 0.3, 0.6, 1, 3);
+            BL.FX.burst(e.x, e.y, 20, e.boss.palette, 40, 120, 0.3, 0.6, 1, 3);
             next(e, 'blinkIn', 0.35);
           }
           return mv(0, 0, 0);
@@ -558,12 +572,12 @@
           return mv(0, 0, 0);
         case 'command':
           if (e.stT <= 0) {
-            BL.FX.ring(e.x, e.y, 20, 320, 0.8, '#b061ff', 4, true);
+            BL.FX.ring(e.x, e.y, 20, 320, 0.8, e.boss.color, 4, true);
             game.grid.query(e.x, e.y, 350, buf);
             for (const o of buf) if (!o.isBoss) o.buffT = 6;
             summon(game, e, 'striker', 2, 40);
             summon(game, e, 'playmaker', 1, 40);
-            game.banner('EMPEROR COMMAND', 'boss');
+            game.banner('PERFECT PASS', 'boss');
             next(e, 'kite', 2.5);
           }
           return mv(0, 0, 0);
@@ -571,11 +585,12 @@
       return mv(0, 0, 0);
     },
 
-    // ---------------------------------------------------- finalização
-    kurogane(game, e, dt, tdx, tdy) {
+    // ------------------------------------------- finalização: KAISER IMPACT
+    kaiser(game, e, dt, tdx, tdy) {
       enrageCheck(game, e);
       e.stT -= dt;
       const pl = game.player;
+      const C0 = e.boss.color;
       switch (e.st) {
         case 'intro':
           if (e.stT <= 0) next(e, 'chase', 1.8);
@@ -584,20 +599,22 @@
           if (e.stT <= 0) {
             e.cyc++;
             if (e.cyc % 2) {
-              next(e, 'aim', 1.1);
+              next(e, 'aim', 1);
               e.cang = Math.atan2(pl.y - e.y, pl.x - e.x);
-              e.tele = BL.FX.telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.cang, len: 520, w: 18, dur: e.stT, color: '#ff1e3c', follow: e });
+              e.aimD = 200;
+              e.tele = BL.FX.telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.cang, len: 560, w: 16, dur: e.stT, color: C0, follow: e });
+              game.banner(e.enraged ? 'KAISER IMPACT: MAGNUS' : 'KAISER IMPACT', 'warn');
               BL.Audio.play('charge');
             } else {
               e.n = 2;
               next(e, 'windup', 0.5);
-              startWindup(game, e, 260, 24, '#ff1e3c');
+              startWindup(game, e, 260, 24, C0);
             }
           }
           return mv(tdx, tdy, e.speed);
         case 'aim':
           e.pose = 'kick';
-          if (e.stT > 0.3 * e.tempo) {
+          if (e.stT > 0.22 * e.tempo) {
             // rastreia o jogador até pouco antes do chute
             const want = Math.atan2(pl.y - e.y, pl.x - e.x);
             let dd = want - e.cang;
@@ -605,20 +622,33 @@
             while (dd < -Math.PI) dd += Math.PI * 2;
             e.cang += dd * Math.min(1, dt * 5);
             if (e.tele) e.tele.ang = e.cang;
+            e.aimD = U.clamp(Math.hypot(pl.x - e.x, pl.y - e.y), 90, 420);
           }
           if (e.stT <= 0) {
-            const sp = 400;
-            BL.Projectiles.spawnEnemy({ x: e.x, y: e.y, vx: Math.cos(e.cang) * sp, vy: Math.sin(e.cang) * sp, dmg: e.dmg * 1.5, r: 7, life: 2.5, sprite: 'enemyBig', trail: '#ff1e3c' });
-            game.shake(7);
-            BL.Audio.play('power');
-            BL.FX.burst(e.x, e.y, 20, ['#ff1e3c', '#ffffff'], 60, 200, 0.2, 0.4, 2, 3, { angle: e.cang, spread: 0.4 });
+            const shot = { x: e.x, y: e.y, dmg: e.dmg * 1.5, r: 7, life: 2.2, sprite: 'kaiser', trail: C0 };
+            if (e.enraged) {
+              // MAGNUS: duas bolas em arco que se cruzam no ponto mirado
+              const sp = 460, off = 0.6;
+              const w = (2 * sp * Math.sin(off)) / e.aimD; // velocidade angular do arco
+              for (const side of [-1, 1]) {
+                const a = e.cang - side * off;
+                BL.Projectiles.spawnEnemy(Object.assign({}, shot, { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, turn: side * w, turnT: (2 * off) / w }));
+              }
+            } else {
+              const sp = 520;
+              BL.Projectiles.spawnEnemy(Object.assign(shot, { vx: Math.cos(e.cang) * sp, vy: Math.sin(e.cang) * sp }));
+            }
+            game.shake(8);
+            BL.Audio.play('impact');
+            BL.FX.burst(e.x, e.y, 24, [C0, '#ffffff', '#ffd84a'], 60, 220, 0.2, 0.4, 2, 3, { angle: e.cang, spread: 0.4 });
+            BL.FX.ring(e.x, e.y, 6, 40, 0.25, C0, 3);
             next(e, 'burst', 0.5);
             e.n = e.enraged ? 3 : 2;
           }
           return mv(0, 0, 0);
         case 'burst':
           if (e.stT <= 0) {
-            radial(game, e, 20, 115, e.n * 0.16, e.dmg * 0.6);
+            radial(game, e, 20, 115, e.n * 0.16, e.dmg * 0.55);
             if (--e.n > 0) next(e, 'burst', 0.35);
             else next(e, 'chase', 2);
           }
@@ -635,10 +665,10 @@
           e.pose = 'dash';
           const hitWall = BL.Collision.pointSolid(game.map, e.x + e.cx * (e.r + 4), e.y + e.cy * (e.r + 4));
           if (e.stT <= 0 || hitWall) {
-            spread(game, e, 3, 0.5, 160, e.dmg * 0.6);
+            spread(game, e, 3, 0.5, 160, e.dmg * 0.55);
             if (--e.n > 0) {
               next(e, 'windup', 0.4);
-              startWindup(game, e, 260, 24, '#ff1e3c');
+              startWindup(game, e, 260, 24, C0);
             } else next(e, 'chase', 1.8);
             return mv(0, 0, 0);
           }
